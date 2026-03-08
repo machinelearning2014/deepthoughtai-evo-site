@@ -8,20 +8,20 @@ We present **EVO**, an autonomous reasoning system whose core tenet is *Prolog-f
 
 ## 1 Introduction
 
-Large language models (LLMs) have demonstrated remarkable fluency and breadth of knowledge, yet they remain prone to hallucination, logical inconsistency, and a lack of verifiable reasoning traces. Neuro-symbolic approaches attempt to combine neural networks with symbolic reasoning, but most designs keep the LLM as the primary interface, using the symbolic component merely as a refinement or verification step. This paper presents a radical alternative: a system in which **Prolog is the primary reasoner**, and the LLM (or any other tool) is permitted only to supply missing facts?never to replace the reasoning itself.
+Large language models (LLMs) have demonstrated remarkable fluency and breadth of knowledge, yet they remain prone to hallucination, logical inconsistency, and a lack of verifiable reasoning traces. Neuro-symbolic approaches attempt to combine neural networks with symbolic reasoning, but most designs keep the LLM as the primary interface, using the symbolic component merely as a refinement or verification step. This paper presents a radical alternative: a system in which **Prolog is the primary reasoner**, and the LLM (or any other tool) is permitted only to supply missing facts, never to replace the reasoning itself.
 
 The EVO system (short for **E**xplicit-assumption **V**erification **O**rchestrator) is built on seven core principles:
 Domain-specific overlays (for example, mathematics verification or legal-support retrieval policy) are treated as optional use cases layered on top of the same core derivation discipline.
 
-1. **Prolog-first** ? Every task is first formalized as a Prolog knowledge base (KB); reasoning proceeds by Prolog derivation.
-2. **Derivation-based** ? Conclusions are valid only if they are derived from facts and rules via a proof trace (the `prove/2` meta-interpreter).
-3. **Explicit assumptions** ? Assumptions are first-class objects, not hidden inference bridges; they may be enabled, disabled, or swapped.
-4. **Consistency verification** ? Before any response, the KB must pass a consistency check (`inconsistent/0` fails).
-5. **Assumption-dependence testing** ? Every key conclusion is tested for robustness against assumption removal.
-6. **Tools only for facts** ? External tools (LLMs, calculators, web search) may supply missing facts but never perform inference.
-7. **Overlay extensibility** ? Domain-specific verifiers/connectors can be attached as use cases without changing the core Prolog-first reasoning semantics.
+1. **Prolog-first** - Every task is first formalized as a Prolog knowledge base (KB); reasoning proceeds by Prolog derivation.
+2. **Derivation-based** - Conclusions are valid only if they are derived from facts and rules via a proof trace (the `prove/2` meta-interpreter).
+3. **Explicit assumptions** - Assumptions are first-class objects, not hidden inference bridges; they may be enabled, disabled, or swapped.
+4. **Consistency verification** - Before any response, the KB must pass a consistency check (`inconsistent/0` fails).
+5. **Assumption-dependence testing** - Every key conclusion is tested for robustness against assumption removal.
+6. **Tools only for facts** - External tools (LLMs, calculators, web search) may supply missing facts but never perform inference.
+7. **Overlay extensibility** - Domain-specific verifiers/connectors can be attached as use cases without changing the core Prolog-first reasoning semantics.
 
-These principles yield a system that provides **logical consistency guarantees**, **complete traceability**, and **explicit awareness of assumption dependence**?features that are absent in both pure-LLM and existing LLM-first hybrid systems.
+These principles yield a system that provides **logical consistency guarantees**, **complete traceability**, and **explicit awareness of assumption dependence** - features that are absent in both pure-LLM and existing LLM-first hybrid systems.
 
 ### 1.1 Contributions
 
@@ -60,10 +60,10 @@ This ensures that every final answer is grounded in a Prolog derivation trace.
 
 The system consists of four layers:
 
-- **Prolog Reasoning Core** ? Contains the KB, inference rules, `prove/2` meta-interpreter, consistency checker, and assumption manager.
-- **Tool Interface** ? Listens for `need_capability/2` requests and dispatches to appropriate tools (LLM, calculator, web search, etc.).
-- **Optional Domain Verifier Bridge** ? When a domain overlay requires formal verification (for example, mathematics), routes claims to an external verifier (for example, Lean 4); Prolog may suggest proof strategies but does not execute external proofs itself.
-- **User Interface** ? Presents derived conclusions, proof summaries, assumption dependencies, and any remaining limits.
+- **Prolog Reasoning Core** - Contains the KB, inference rules, `prove/2` meta-interpreter, consistency checker, and assumption manager.
+- **Tool Interface** - Listens for `need_capability/2` requests and dispatches to appropriate tools (LLM, calculator, web search, etc.).
+- **Optional Domain Verifier Bridge** - When a domain overlay requires formal verification (for example, mathematics), routes claims to an external verifier (for example, Lean 4); Prolog may suggest proof strategies but does not execute external proofs itself.
+- **User Interface** - Presents derived conclusions, proof summaries, assumption dependencies, and any remaining limits.
 
 All layers are orchestrated by the mandatory reasoning workflow (§5).
 
@@ -98,7 +98,7 @@ A constraint is a rule of the form `false :- Body` that signals inconsistency if
 
 ## 5 Reasoning Workflow
 
-EVO enforces a **mandatory nine-step workflow** (Steps 0?8) for every task, preceded by a **Complexity Triage** gate, and governed by eight hard rules and eight halt conditions.
+EVO enforces a **mandatory nine-step workflow** (Steps 0-8) for every task, preceded by a **Complexity Triage** gate, and governed by eight hard rules and eight halt conditions.
 
 ### 5.0 Hard Rules and Halt Conditions
 
@@ -130,14 +130,14 @@ Eight halt conditions trigger an immediate stop:
 
 Before any step begins, the system decides whether the request is **COMPLEX**. A request is COMPLEX if any of the following apply: multiple interdependent subproblems or long dependency chains; underspecified requirements or ambiguous terms; need for planning/search across alternatives; reconciling constraints across modules; or high risk of wrong assumptions if not clarified first.
 
-A **TRIAGE ARTIFACT** must be produced ? one of:
+A **TRIAGE ARTIFACT** must be produced - one of:
 
 > `[TRIAGE: COMPLEX — reason: <one sentence>]`
 > `[TRIAGE: NOT COMPLEX — reason: <one sentence>]`
 
 This artifact must appear before any step begins. If COMPLEX, proceed to Step 0. If NOT COMPLEX, skip Step 0 (with documented justification) and proceed to Step 1.
 
-### 5.2 Step 0 ? Problem Analysis (Complex Problems Only)
+### 5.2 Step 0 - Problem Analysis (Complex Problems Only)
 
 **Input required:** TRIAGE artifact declares COMPLEX.
 **Output artifact:** One of (A) or (B) derived in Prolog.
@@ -162,12 +162,12 @@ If both A and B are derivable, treat as inconsistency and repair KB. Do **not** 
 
 Build and **execute** (via `prolog_exec`) a KB with all of:
 
-1. **Observations** ? `observation(Fact).` (empirical or user-given).
-2. **Claims/Premises** ? `claim(C).` / `premise(P).` (user-stated).
-3. **Rules** ? Inference rules deriving new information. Forbidden: `:- true.` unless explicitly declared an axiom; rules whose head embeds their own conclusion.
-4. **Assumptions** ? `active_assumption(Name).` (explicit bridges only, each with a textual justification comment).
-5. **Constraints** ? `inconsistent :- <contradiction>.` (at least one required).
-6. **Harness** ? all four required; missing any triggers HALT(H2): `prove/2`, `active_assumption/1`, `inconsistent/0`, `solved/2`.
+1. **Observations** - `observation(Fact).` (empirical or user-given).
+2. **Claims/Premises** - `claim(C).` / `premise(P).` (user-stated).
+3. **Rules** - Inference rules deriving new information. Forbidden: `:- true.` unless explicitly declared an axiom; rules whose head embeds their own conclusion.
+4. **Assumptions** - `active_assumption(Name).` (explicit bridges only, each with a textual justification comment).
+5. **Constraints** - `inconsistent :- <contradiction>.` (at least one required).
+6. **Harness** - all four required; missing any triggers HALT(H2): `prove/2`, `active_assumption/1`, `inconsistent/0`, `solved/2`.
 
 A self-check must confirm at least one ground observation/claim/premise is present before continuing.
 
@@ -187,7 +187,7 @@ Run exhaustive derivation:
 Rules:
 - Record every `(Answer, Proof)` pair as the step artifact.
 - Never assert a conclusion manually without a derivation trace.
-- If `Results = []`, either emit `need_capability(Capability, Purpose)` for each gap and proceed to Step 5 (then re-run Step 2), or ? if no capability can fill the gap ? HALT(H3) and label MAPPED.
+- If `Results = []`, either emit `need_capability(Capability, Purpose)` for each gap and proceed to Step 5 (then re-run Step 2), or, if no capability can fill the gap, HALT(H3) and label MAPPED.
 - Partial success is allowed; document which requirements are fulfilled vs missing.
 - Tag each conclusion with fulfillment status:
 ```prolog
@@ -211,9 +211,9 @@ Always run:
 
 If it fails the KB is consistent; proceed to Step 4. If it succeeds: trace via `prove(inconsistent, Proof)`, repair the conflicting rule/fact, re-run Step 2 with the repaired KB. If repair is impossible, HALT(H4) and label `INCONSISTENT(source)`. **Never answer from an inconsistent KB.**
 
-Explicit verdicts: `[CONSISTENT]`, `[REPAIRED ? conflict: X, fix: Y]`, or `[HALT(H4) ? irresolvable inconsistency]`.
+Explicit verdicts: `[CONSISTENT]`, `[REPAIRED - conflict: X, fix: Y]`, or `[HALT(H4) - irresolvable inconsistency]`.
 
-### 5.6 Step 4 ? Assumption-Dependence Test
+### 5.6 Step 4 - Assumption-Dependence Test
 
 **Input required:** Step 3 artifact showing CONSISTENT or REPAIRED.
 **Output artifact:** Per-conclusion classification table.
@@ -224,16 +224,16 @@ For each conclusion $C$ from Step 2:
 2. For each $A$ in `active_assumption/1`: retract $A$, attempt re-derivation, re-assert $A$.
 3. Classify as:
 
-- **ROBUST** ? $C$ holds with every assumption removed.
-- **ASSUMPTION-DEPENDENT** ? $C$ fails when assumption $A$ is removed.
-- **FRAGILE** ? $C$ fails when **any** assumption is removed.
+- **ROBUST** - $C$ holds with every assumption removed.
+- **ASSUMPTION-DEPENDENT** - $C$ fails when assumption $A$ is removed.
+- **FRAGILE** - $C$ fails when **any** assumption is removed.
 
-Any ASSUMPTION-DEPENDENT conclusion omitted from this test must not appear in the final response ? HALT(H5). Paradoxes are ASSUMPTION-DEPENDENT tensions, not logical inconsistencies.
+Any ASSUMPTION-DEPENDENT conclusion omitted from this test must not appear in the final response - HALT(H5). Paradoxes are ASSUMPTION-DEPENDENT tensions, not logical inconsistencies.
 
-### 5.7 Step 5 ? Tool Usage (Fact Acquisition)
+### 5.7 Step 5 - Tool Usage (Fact Acquisition)
 
 **Input required:** `need_capability/2` from Step 2, **or** a formal proof task.
-**Output artifact:** Tool output converted to Prolog facts and validation facts + re-run of Steps 2?3 with enriched KB.
+**Output artifact:** Tool output converted to Prolog facts and validation facts + re-run of Steps 2-3 with enriched KB.
 
 A tool **must not** be invoked unless either:
 1. Prolog emitted `need_capability(Capability, Purpose)`, or
@@ -253,9 +253,9 @@ Tool output may not introduce new `active_assumption/1` predicates, replace Prol
 
 **Formal mathematics exception (non-negotiable):** any theorem, lemma, or formal mathematical statement must use `lean4_exec` for final formal verification. Prolog may plan proof structure, but no other tool may substitute for Lean 4 on formal proofs.
 
-A maximum of five sequential tool calls is allowed per reasoning cycle. Exceeding this limit without resolution triggers `HALT ? INCOMPLETE(tool_loop: <description>)`.
+A maximum of five sequential tool calls is allowed per reasoning cycle. Exceeding this limit without resolution triggers `HALT - INCOMPLETE(tool_loop: <description>)`.
 
-### 5.8 Step 6 ? Solved / Mapped / Incomplete Gate
+### 5.8 Step 6 - Solved / Mapped / Incomplete Gate
 
 **Input required:** All prior step artifacts.
 **Output artifact:** Mandatory status declaration with semantic validation.
@@ -276,26 +276,26 @@ Check 2 fails with non-empty KB and no capability gap $\rightarrow$ `[STATUS: MA
 Check 6 fails (semantic mismatch with `problem_spec`) $\rightarrow$ `[STATUS: MAPPED — reason: solution does not fully match problem_spec]` and HALT(H8).
 Any other check fails or halt triggered $\rightarrow$ `[STATUS: INCOMPLETE — reason: X]`.
 
-### 5.9 Step 7 ? Response Construction
+### 5.9 Step 7 - Response Construction
 
 **Input required:** Step 6 artifact + all prior artifacts.
 **Output artifact:** Structured final response with all nine required sections.
 
 Required sections (omitting any section is a HALT(H7) condition):
 
-1. **Direct Answer** ? Natural-language answer based only on derived conclusions, or explicit statement of missing information.
-2. **Status** ? `[SOLVED | MAPPED | INCOMPLETE]`.
-3. **Problem Specification** ? Restate `problem_spec` requirements and method constraints.
-4. **Derived Conclusions** ? Each `conclusion(Answer)` with proof-summary citation and fulfillment status.
-5. **Proof Summaries** ? Abbreviated `prove/2` trace for each conclusion.
-6. **Assumptions Used** ? Each `active_assumption/1` active during derivation; if none: "No assumptions required."
-7. **Dependence Classification** ? ROBUST / ASSUMPTION-DEPENDENT / FRAGILE for each conclusion, with tested assumptions listed.
-8. **Validation Report** ? For each requirement: fulfillment status (fully/partially/not), evidence, and gap analysis.
-9. **Remaining Limits** ? Missing facts, unresolved assumptions, or capability gaps; if none: "None."
+1. **Direct Answer** - Natural-language answer based only on derived conclusions, or explicit statement of missing information.
+2. **Status** - `[SOLVED | MAPPED | INCOMPLETE]`.
+3. **Problem Specification** - Restate `problem_spec` requirements and method constraints.
+4. **Derived Conclusions** - Each `conclusion(Answer)` with proof-summary citation and fulfillment status.
+5. **Proof Summaries** - Abbreviated `prove/2` trace for each conclusion.
+6. **Assumptions Used** - Each `active_assumption/1` active during derivation; if none: "No assumptions required."
+7. **Dependence Classification** - ROBUST / ASSUMPTION-DEPENDENT / FRAGILE for each conclusion, with tested assumptions listed.
+8. **Validation Report** - For each requirement: fulfillment status (fully/partially/not), evidence, and gap analysis.
+9. **Remaining Limits** - Missing facts, unresolved assumptions, or capability gaps; if none: "None."
 
 Forbidden in response: intuition, narrative, or speculation not in step artifacts; conclusions without proof traces; tool output cited directly without Prolog re-derivation; omission of any section above.
 
-### 5.10 Step 8 ? Pre-Response Audit
+### 5.10 Step 8 - Pre-Response Audit
 
 **Input required:** Draft response from Step 7.
 **Output artifact:** Audit pass/fail log; any FAIL triggers HALT(H7).
@@ -350,9 +350,9 @@ Prolog may request only these capability classes (in priority order):
 
 Each tool category has specific validity signals:
 
-- `lean4_exec` ? valid only on explicit compilation success (no errors in output).
-- `prolog_exec` ? valid only on explicit execution success.
-- Other tools ? invalid if output contains "Error:", a traceback, or any exception class name.
+- `lean4_exec` - valid only on explicit compilation success (no errors in output).
+- `prolog_exec` - valid only on explicit execution success.
+- Other tools - invalid if output contains "Error:", a traceback, or any exception class name.
 
 **Rule:** Partial output before an error is **tainted**; never derive conclusions from tainted output.
 
@@ -366,7 +366,7 @@ Tool outputs are converted into Prolog facts via a conservative mapping:
 
 These facts are asserted into the KB, and derivation is re-attempted from Step 2. Tool outputs may **not** introduce new `active_assumption/1` predicates; if a tool result requires an inferential bridge it must be explicitly modelled as an assumption with justification.
 
-### 6.4 Use Case Overlay Example ? Legal-Support Retrieval (Australia)
+### 6.4 Use Case Overlay Example - Legal-Support Retrieval (Australia)
 
 In legal-support mode, EVO applies an additional source-discipline layer:
 
@@ -439,7 +439,7 @@ robust_under(Conclusion, [A|Rest]) :-
     activate(A).
 ```
 
-### 7.4 Use Case Overlay ? Mathematics (Lean 4 Bridge)
+### 7.4 Use Case Overlay - Mathematics (Lean 4 Bridge)
 
 When the mathematics overlay is active and a formal theorem `theorem(Statement)` is derived, EVO applies the following domain policy:
 
@@ -448,7 +448,7 @@ When the mathematics overlay is active and a formal theorem `theorem(Statement)`
 3. Calls `lean4_exec`; if compilation fails, the theorem is **not considered proven**.
 4. Reports the Lean 4 verification result alongside the Prolog derivation.
 
-Any name returned by `mathlib_search` must be cross-verified with `mathlib_check` or `#check` inside `lean4_exec` before use, because `mathlib_search` returns mixed Lean 3 and Lean 4 results ? Lean 3 names are invalid in Lean 4/Mathlib4.
+Any name returned by `mathlib_search` must be cross-verified with `mathlib_check` or `#check` inside `lean4_exec` before use, because `mathlib_search` returns mixed Lean 3 and Lean 4 results - Lean 3 names are invalid in Lean 4/Mathlib4.
 
 ### 7.5 Prolog Code Hygiene
 
@@ -456,7 +456,7 @@ Every Prolog program must load in the SWI-Prolog sandbox without errors, warning
 
 - **Dynamic declarations:** `:- dynamic predicate/arity.` for any predicate modified via `assert`/`retract`.
 - **Discontiguous declarations:** `:- discontiguous predicate/arity.` when clauses of the same predicate are separated.
-- **`main/0` required:** define two clauses ? one body clause ending in `fail` (to force backtracking through all solutions) and one catch-all clause. Never leave `main/0` undefined.
+- **`main/0` required:** define two clauses - one body clause ending in `fail` (to force backtracking through all solutions) and one catch-all clause. Never leave `main/0` undefined.
 - **ASCII only:** no Unicode symbols in Prolog source (no `>=`, `<=`, `->`, `/\`, etc.).
 - **Uppercase variables:** `X`, `Y`, `Z`, not `x`, `y`, `z`.
 - **No built-in redefinition:** never redefine `clause/2`, `assert/1`, `call/1`, etc.
@@ -479,7 +479,7 @@ main :-
     write('Done.'), nl.
 ```
 
-### 7.6 Use Case Overlay ? Mathematics (LaTeX Output Requirements)
+### 7.6 Use Case Overlay - Mathematics (LaTeX Output Requirements)
 
 When the mathematics overlay is active, mathematical notation in responses must conform to strict LaTeX delimiter rules to prevent frontend rendering failures:
 
@@ -490,7 +490,7 @@ When the mathematics overlay is active, mathematical notation in responses must 
 - Line breaks inside `aligned` or `cases` environments require `\\` (double backslash), not a single backslash.
 - `\begin{cases}` expressions must reside entirely in one `$$` block.
 
-### 7.7 Use Case Overlay ? Legal Support
+### 7.7 Use Case Overlay - Legal Support
 
 The deployed system includes a dedicated `legal-support` assistant mode selected at login time. This overlay changes retrieval policy and response posture without changing the Prolog-first reasoning core.
 
@@ -577,7 +577,7 @@ conclusion(total_apples(alice, N)) :- observation(apples(alice, M)), observation
 
 *Steps 5–6:* No tool calls required; all checks pass → `[STATUS: SOLVED]`.
 
-*Step 8 ? Audit:* All 18 items pass.
+*Step 8 - Audit:* All 18 items pass.
 
 *Response:* Conclusion `total_apples(alice, 5)` with proof trace; ROBUST; no assumptions; no remaining limits.
 
@@ -585,10 +585,10 @@ The difference is subtle but critical: in EVO, the **reasoning is done entirely 
 
 ### 8.3 Limitations
 
-- **Expressiveness bound** ? Problems that cannot be naturally formalised in Prolog require extensive modelling effort; highly compositional or perceptual tasks remain difficult to express as Horn clauses.
-- **Performance** ? The mandatory nine-step workflow, twelve-item audit, and per-conclusion assumption-dependence testing add overhead; real-time responses may be slower than pure-LLM systems.
-- **Tool-output parsing** ? Converting arbitrary tool outputs to Prolog facts is non-trivial and may introduce errors, especially for richly structured data (graphs, images, LaTeX proofs).
-- **Assumption explosion** ? Complex tasks may require many assumptions, making dependence testing combinatorially heavy (exponential in the number of assumptions in the worst case).
+- **Expressiveness bound** - Problems that cannot be naturally formalised in Prolog require extensive modelling effort; highly compositional or perceptual tasks remain difficult to express as Horn clauses.
+- **Performance** - The mandatory nine-step workflow, twelve-item audit, and per-conclusion assumption-dependence testing add overhead; real-time responses may be slower than pure-LLM systems.
+- **Tool-output parsing** - Converting arbitrary tool outputs to Prolog facts is non-trivial and may introduce errors, especially for richly structured data (graphs, images, LaTeX proofs).
+- **Assumption explosion** - Complex tasks may require many assumptions, making dependence testing combinatorially heavy (exponential in the number of assumptions in the worst case).
 - **Lean 4 bridge latency** — Formal verification via `lean4_exec` adds significant latency (120 s sandbox timeout); tasks requiring many Lean 4 calls are practically constrained.
 - **Capability-class ceiling** — The five-call tool limit per reasoning cycle means deeply nested fact-acquisition chains may terminate with `INCOMPLETE` rather than a complete derivation.
 
@@ -608,14 +608,14 @@ This inversion ensures that the system's outputs are always justified by a symbo
 
 ### 9.3 Future Work
 
-- **Automated KB construction** ? Using LLMs to help translate natural-language problems into Prolog KBs, while keeping the LLM in a strictly subordinate role.
-- **Assumption mining** ? Automatically identifying implicit assumptions in user queries and making them explicit.
-- **Scalable consistency checking** ? Efficient methods for detecting inconsistencies in large KBs.
-- **Interactive assumption exploration** ? Allowing users to toggle assumptions and see how conclusions change in real time.
-- **Integration with broader formal methods** ? Extending the mathematics-overlay verifier path beyond Lean 4 to other formal verification tools (Isabelle, Coq) for domain-specific deployments.
-- **Automated audit repair** ? When STEP 8 audit fails, automatically identifying which prior step to re-run and which artifact to regenerate, rather than halting entirely.
+- **Automated KB construction** - Using LLMs to help translate natural-language problems into Prolog KBs, while keeping the LLM in a strictly subordinate role.
+- **Assumption mining** - Automatically identifying implicit assumptions in user queries and making them explicit.
+- **Scalable consistency checking** - Efficient methods for detecting inconsistencies in large KBs.
+- **Interactive assumption exploration** - Allowing users to toggle assumptions and see how conclusions change in real time.
+- **Integration with broader formal methods** - Extending the mathematics-overlay verifier path beyond Lean 4 to other formal verification tools (Isabelle, Coq) for domain-specific deployments.
+- **Automated audit repair** - When STEP 8 audit fails, automatically identifying which prior step to re-run and which artifact to regenerate, rather than halting entirely.
 - **Proof-trace compression** — Compact serialisation of `prove/2` trees for large KBs to reduce context overhead in long reasoning chains.
-- **Progressive tool-call budget** ? Dynamic adjustment of the five-call limit based on problem complexity rather than a fixed ceiling.
+- **Progressive tool-call budget** - Dynamic adjustment of the five-call limit based on problem complexity rather than a fixed ceiling.
 
 ## 10 Conclusion
 
@@ -623,7 +623,7 @@ EVO presents a **Prolog-first** autonomous reasoning system that places Prolog a
 
 The system's strict separation between symbolic reasoning and fact acquisition ensures that tools (including LLMs) are used only as knowledge oracles, never as reasoning engines. This architecture inverts the prevailing neuro-symbolic design and offers a path toward verifiable, transparent, and assumption-aware AI reasoning.
 
-While EVO imposes modeling overhead and performance costs, it delivers in return **traceability, consistency, and explicit dependence tracking**?features essential for high-stakes applications where correctness and auditability are paramount.
+While EVO imposes modeling overhead and performance costs, it delivers in return **traceability, consistency, and explicit dependence tracking** - features essential for high-stakes applications where correctness and auditability are paramount.
 
 ## References
 
@@ -647,7 +647,7 @@ While EVO imposes modeling overhead and performance costs, it delivers in return
 
 [10] L. Sterling and E. Shapiro, *The Art of Prolog*, MIT Press, 1994.
 
-[11] F. Bry and M. Eckert, "On reasoning on the Web with rules and ontologies," *Journal of Applied Logic*, vol. 6, no. 1, pp. 3?25, 2008.
+[11] F. Bry and M. Eckert, "On reasoning on the Web with rules and ontologies," *Journal of Applied Logic*, vol. 6, no. 1, pp. 3-25, 2008.
 
 [12] J. W. Lloyd, *Foundations of Logic Programming*, Springer, 1987.
 

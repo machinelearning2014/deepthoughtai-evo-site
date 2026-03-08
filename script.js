@@ -39,7 +39,7 @@ async function loadPaper() {
   if (!target) return;
 
   try {
-    const res = await fetch("paper.md", { cache: "no-cache" });
+    const res = await fetch("paper.md?v=20260308c", { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const md = await res.text();
