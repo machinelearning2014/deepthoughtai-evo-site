@@ -70,6 +70,12 @@ body {
   border: 1px solid #cddcff;
 }
 
+.nav-chip-active {
+  color: #ffffff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .open-evo {
   color: #ffffff;
   background: var(--accent);
@@ -81,6 +87,10 @@ body {
   padding: 1.2rem 0 2.4rem;
   display: grid;
   gap: 1rem;
+}
+
+.content-single {
+  display: grid;
 }
 
 .hero-card,
