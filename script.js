@@ -16,19 +16,25 @@ async function loadPaper() {
     const md = await res.text();
     target.innerHTML = marked.parse(md);
 
-    target.querySelectorAll("pre code").forEach((el) => {
-      hljs.highlightElement(el);
-    });
+    // Highlight code only when highlight.js is available.
+    if (window.hljs) {
+      target.querySelectorAll("pre code").forEach((el) => {
+        window.hljs.highlightElement(el);
+      });
+    }
 
-    renderMathInElement(target, {
-      delimiters: [
-        { left: "$$", right: "$$", display: true },
-        { left: "$", right: "$", display: false },
-        { left: "\\(", right: "\\)", display: false },
-        { left: "\\[", right: "\\]", display: true },
-      ],
-      throwOnError: false,
-    });
+    // Render LaTeX only when KaTeX auto-render is available.
+    if (window.renderMathInElement) {
+      window.renderMathInElement(target, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false },
+          { left: "\\[", right: "\\]", display: true },
+        ],
+        throwOnError: false,
+      });
+    }
   } catch (err) {
     target.innerHTML = `<p class="loading">Failed to load paper: ${String(err)}</p>`;
   }
