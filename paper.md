@@ -90,7 +90,7 @@ EVO uses standard Prolog resolution, extended with a meta-interpreter that recor
 
 ### 4.3 Assumptions as First-Class Objects
 
-An assumption is not a hidden inference bridge (e.g., `\texttt{ideal $\textbackslash\{\}Rightarrow$ actual" or }`purpose $\Rightarrow$ achievement"). It is an explicit formula that can be individually enabled or disabled. The system maintains a set of **active assumptions** $\mathcal{A}_{\text{active}}$. Any inference that depends on an assumption must record that dependence in the proof trace.
+An assumption is not a hidden inference bridge (e.g., `ideal => actual` or `purpose => achievement`). It is an explicit formula that can be individually enabled or disabled. The system maintains a set of **active assumptions** $\mathcal{A}_{\text{active}}$. Any inference that depends on an assumption must record that dependence in the proof trace.
 
 ### 4.4 Consistency Constraints
 
@@ -115,27 +115,16 @@ Eight rules apply to every step without exception:
 
 Eight halt conditions trigger an immediate stop:
 
-\begin{tabular}{|p{6.8cm}|p{6.8cm}|}
-\hline
-**Code** & **Trigger** \\
-\hline
-H1 & STEP 0 triggered but `need_clarification/1` derivable ? ask, wait \\
-\hline
-H2 & STEP 1 KB is empty or missing any harness predicate \\
-\hline
-H3 & STEP 2 produces zero conclusions and no `need_capability/2` emitted \\
-\hline
-H4 & STEP 3 finds `inconsistent/0` succeeds and KB cannot be repaired \\
-\hline
-H5 & STEP 4 skipped for any ASSUMPTION-DEPENDENT conclusion \\
-\hline
-H6 & A tool is invoked without a prior `need_capability/2` declaration \\
-\hline
-H7 & Pre-response audit (STEP 8) fails any checklist item \\
-\hline
-H8 & STEP 6 semantic validation fails (solution does not match `problem_spec`) \\
-\hline
-\end{tabular}
+| Code | Trigger |
+| --- | --- |
+| H1 | STEP 0 triggered but `need_clarification/1` derivable — ask, wait |
+| H2 | STEP 1 KB is empty or missing any harness predicate |
+| H3 | STEP 2 produces zero conclusions and no `need_capability/2` emitted |
+| H4 | STEP 3 finds `inconsistent/0` succeeds and KB cannot be repaired |
+| H5 | STEP 4 skipped for any ASSUMPTION-DEPENDENT conclusion |
+| H6 | A tool is invoked without a prior `need_capability/2` declaration |
+| H7 | Pre-response audit (STEP 8) fails any checklist item |
+| H8 | STEP 6 semantic validation fails (solution does not match `problem_spec`) |
 
 ### 5.1 Complexity Triage
 
@@ -143,8 +132,8 @@ Before any step begins, the system decides whether the request is **COMPLEX**. A
 
 A **TRIAGE ARTIFACT** must be produced ? one of:
 
-> `[TRIAGE: COMPLEX ? reason: <one sentence>]`
-> `[TRIAGE: NOT COMPLEX ? reason: <one sentence>]`
+> `[TRIAGE: COMPLEX — reason: <one sentence>]`
+> `[TRIAGE: NOT COMPLEX — reason: <one sentence>]`
 
 This artifact must appear before any step begins. If COMPLEX, proceed to Step 0. If NOT COMPLEX, skip Step 0 (with documented justification) and proceed to Step 1.
 
@@ -166,7 +155,7 @@ HALT(H1): ask **only** the blocking questions; wait; re-run Step 0.
 
 If both A and B are derivable, treat as inconsistency and repair KB. Do **not** proceed to Step 1 until `problem_spec/1` is derivable.
 
-### 5.3 Step 1 ? Formalize
+### 5.3 Step 1 — Formalize
 
 **Input required:** TRIAGE artifact + Step 0 artifact (if COMPLEX).
 **Output artifact:** Executed Prolog KB confirmed non-empty with all six components present and harness loaded cleanly.
@@ -182,7 +171,7 @@ Build and **execute** (via `prolog_exec`) a KB with all of:
 
 A self-check must confirm at least one ground observation/claim/premise is present before continuing.
 
-### 5.4 Step 2 ? Derive
+### 5.4 Step 2 — Derive
 
 **Input required:** Step 1 artifact (KB loaded cleanly).
 **Output artifact:** All derivable `(Answer, Proof)` pairs via `findall`, with fulfillment-status tags, or `need_capability/2` declarations per gap.
@@ -209,7 +198,7 @@ conclusion_with_status(Answer, Status).
 %   does_not_fulfill(RequirementName, Reason)
 ```
 
-### 5.5 Step 3 ? Consistency Check
+### 5.5 Step 3 — Consistency Check
 
 **Input required:** Step 2 artifact.
 **Output artifact:** Explicit consistency verdict + repair log if needed.
@@ -256,7 +245,7 @@ Invoking a tool without these preconditions triggers HALT(H6).
 1. Quote the `need_capability/2` fact that authorises this call.
 2. Execute the tool.
 3. Convert every relevant result into Prolog facts: `acquired_fact(source(Tool), content(Result)).`
-4. Convert to validation facts: `tool_result_fulfills(ResultID, Requirement, Status)` where \texttt{Status in \{fully, partially, not\}}.
+4. Convert to validation facts: `tool_result_fulfills(ResultID, Requirement, Status)` where `Status in {fully, partially, not}`.
 5. Assert new facts into KB.
 6. Re-run Steps 2 and 3 with enriched KB.
 
@@ -283,9 +272,9 @@ Evaluate in order:
 | 6 | Semantic validation passes: conclusions satisfy `problem_spec` requirements and method constraints |
 
 All checks pass $\rightarrow$ `[STATUS: SOLVED]`.
-Check 2 fails with non-empty KB and no capability gap $\rightarrow$ `[STATUS: MAPPED ? reason: X]`.
-Check 6 fails (semantic mismatch with `problem_spec`) $\rightarrow$ `[STATUS: MAPPED ? reason: solution does not fully match problem_spec]` and HALT(H8).
-Any other check fails or halt triggered $\rightarrow$ `[STATUS: INCOMPLETE ? reason: X]`.
+Check 2 fails with non-empty KB and no capability gap $\rightarrow$ `[STATUS: MAPPED — reason: X]`.
+Check 6 fails (semantic mismatch with `problem_spec`) $\rightarrow$ `[STATUS: MAPPED — reason: solution does not fully match problem_spec]` and HALT(H8).
+Any other check fails or halt triggered $\rightarrow$ `[STATUS: INCOMPLETE — reason: X]`.
 
 ### 5.9 Step 7 ? Response Construction
 
@@ -342,31 +331,18 @@ All pass $\rightarrow$ send response. Any fail $\rightarrow$ HALT(H7), fix the g
 
 Prolog may request only these capability classes (in priority order):
 
-\begin{tabular}{|p{4.5cm}|p{4.5cm}|p{4.5cm}|}
-\hline
-**Capability** & **Concrete tools** & **Notes** \\
-\hline
-`internal_knowledge` & (no tool call) & **Check first** ? answer from training data when sufficient \\
-\hline
-`logical_reasoning` & `prolog_exec` & \\
-\hline
-`formal_verification` & `lean4_exec`, `mathlib_check`, `mathlib_search` & `lean4_exec` is mandatory for formal theorem/lemma verification \\
-\hline
-`computation_programmatic` & `python_exec` & \\
-\hline
-`computation_ml` & `xgboost_exec`, `vae_exec`, `gan_exec`, `decision_tree_exec`, `matplotlib_exec`, `networkx_exec` & \\
-\hline
-`computation_symbolic` & `sympy_exec` & \\
-\hline
-`document_processing` & `pdf_exec` & PDF generation (reportlab, FPDF) and parsing (pdfplumber, PyPDF2) \\
-\hline
-`web_lookup` & `web_search`, `arxiv_search`, `web_browse`, `web_navigate` & \\
-\hline
-`workspace_management` & `read_file`, `write_file`, `list_files`, `search_files`, `run_command`, `replace_in_file` & \\
-\hline
-`context_memory` & `query_kb`, `retrieve_artifact` & Session KB queries and artifact retrieval \\
-\hline
-\end{tabular}
+| Capability | Concrete tools | Notes |
+| --- | --- | --- |
+| `internal_knowledge` | (no tool call) | **Check first** — answer from training data when sufficient |
+| `logical_reasoning` | `prolog_exec` |  |
+| `formal_verification` | `lean4_exec`, `mathlib_check`, `mathlib_search` | `lean4_exec` is mandatory for formal theorem/lemma verification |
+| `computation_programmatic` | `python_exec` |  |
+| `computation_ml` | `xgboost_exec`, `vae_exec`, `gan_exec`, `decision_tree_exec`, `matplotlib_exec`, `networkx_exec` |  |
+| `computation_symbolic` | `sympy_exec` |  |
+| `document_processing` | `pdf_exec` | PDF generation (reportlab, FPDF) and parsing (pdfplumber, PyPDF2) |
+| `web_lookup` | `web_search`, `arxiv_search`, `web_browse`, `web_navigate` |  |
+| `workspace_management` | `read_file`, `write_file`, `list_files`, `search_files`, `run_command`, `replace_in_file` |  |
+| `context_memory` | `query_kb`, `retrieve_artifact` | Session KB queries and artifact retrieval |
 
 **Capability priority rule:** Always try `internal_knowledge` first. Escalate only if it cannot supply the required fact (e.g. live data or exact computation). Formal-mathematics tasks still require `lean4_exec`.
 
@@ -481,11 +457,11 @@ Every Prolog program must load in the SWI-Prolog sandbox without errors, warning
 - **Dynamic declarations:** `:- dynamic predicate/arity.` for any predicate modified via `assert`/`retract`.
 - **Discontiguous declarations:** `:- discontiguous predicate/arity.` when clauses of the same predicate are separated.
 - **`main/0` required:** define two clauses ? one body clause ending in `fail` (to force backtracking through all solutions) and one catch-all clause. Never leave `main/0` undefined.
-- **ASCII only:** no Unicode symbols in Prolog source (no `>=`, `<=`, `->`, \texttt{/\textbackslash\{\}}, etc.).
+- **ASCII only:** no Unicode symbols in Prolog source (no `>=`, `<=`, `->`, `/\`, etc.).
 - **Uppercase variables:** `X`, `Y`, `Z`, not `x`, `y`, `z`.
 - **No built-in redefinition:** never redefine `clause/2`, `assert/1`, `call/1`, etc.
 - **Use `call/1` not `clause/2`** for dynamic dispatch (avoids `permission_private` errors).
-- **`format/3` argument list:** the `Args` parameter must always be a list, e.g. \texttt{format(atom(X), '\textasciitilde{}w\textasciitilde{}n', [Val])}.
+- **`format/3` argument list:** the `Args` parameter must always be a list, e.g. `format(atom(X), '~w~n', [Val])`.
 
 Safe KB template (pre-validated, may be used directly):
 
@@ -510,9 +486,9 @@ When the mathematics overlay is active, mathematical notation in responses must 
 - Every LaTeX command must be wrapped in `$...$` (inline) or `$$...$$` (display); bare commands without delimiters are forbidden.
 - Complete expressions must reside inside a **single** delimiter pair; splitting one expression across multiple `$` pairs is forbidden.
 - Nested delimiters are forbidden.
-- Currency dollars inside math must be escaped: \texttt{\textbackslash\{\}$100}.
-- Line breaks inside `aligned` or `cases` environments require \texttt{\textbackslash\{\}\textbackslash\{\}} (double backslash), not a single backslash.
-- \texttt{\textbackslash\{\}begin\{cases\}} expressions must reside entirely in one `$$` block.
+- Currency dollars inside math must be escaped: `\$100`.
+- Line breaks inside `aligned` or `cases` environments require `\\` (double backslash), not a single backslash.
+- `\begin{cases}` expressions must reside entirely in one `$$` block.
 
 ### 7.7 Use Case Overlay ? Legal Support
 
@@ -547,42 +523,37 @@ Beyond mathematics and legal support, the same EVO core can be applied to other 
 
 We compare EVO against two axes: **pure LLM reasoning** and **LLM-first hybrids** (like [5,6]).
 
-\begin{tabular}{|p{3.4cm}|p{3.4cm}|p{3.4cm}|p{3.4cm}|}
-\hline
-**Criterion** & **Pure LLM** & **LLM-First Hybrid** & **EVO (Prolog-First)** \\
-\hline
-Logical consistency guarantee & \textbackslash\{\}texttimes No & (!) Limited (depends on LLM) & \textbackslash\{\}checkmark Yes (via inconsistent check) \\
-\hline
-Proof traces & \textbackslash\{\}texttimes No & (!) Partial (trajectories for training) & \textbackslash\{\}checkmark Yes (explicit prove/2 trees) \\
-\hline
-Assumption tracking & \textbackslash\{\}texttimes No & \textbackslash\{\}texttimes No & \textbackslash\{\}checkmark Yes (first-class, swappable) \\
-\hline
-Formal math verification & \textbackslash\{\}texttimes No & \textbackslash\{\}texttimes No & \textbackslash\{\}checkmark Yes (via mathematics overlay, e.g., Lean 4) \\
-\hline
-Fact-acquisition separation & \textbackslash\{\}texttimes No & (!) Mixed (LLM still does reasoning) & \textbackslash\{\}checkmark Strict (tools only supply facts) \\
-\hline
-Uniqueness claims require proof & \textbackslash\{\}texttimes No & \textbackslash\{\}texttimes No & \textbackslash\{\}checkmark Yes (exhaustive search or completeness proof) \\
-\hline
-Pre-response audit gate & \textbackslash\{\}texttimes No & \textbackslash\{\}texttimes No & \textbackslash\{\}checkmark Yes (12-item checklist, A1?A12) \\
-\hline
-Workflow hard rules + halt conditions & \textbackslash\{\}texttimes No & \textbackslash\{\}texttimes No & \textbackslash\{\}checkmark Yes (R1?R6, H1?H7) \\
-\hline
-Three-way status (SOLVED / MAPPED / INCOMPLETE) & \textbackslash\{\}texttimes No & \textbackslash\{\}texttimes No & \textbackslash\{\}checkmark Yes \\
-\hline
-\end{tabular}
+| Criterion | Pure LLM | LLM-First Hybrid | EVO (Prolog-First) |
+| --- | --- | --- | --- |
+| Logical consistency guarantee | ✗ No | (!) Limited (depends on LLM) | ✓ Yes (via `inconsistent` check) |
+| Proof traces | ✗ No | (!) Partial (trajectories for training) | ✓ Yes (explicit `prove/2` trees) |
+| Assumption tracking | ✗ No | ✗ No | ✓ Yes (first-class, swappable) |
+| Formal math verification | ✗ No | ✗ No | ✓ Yes (via mathematics overlay, e.g., Lean 4) |
+| Fact-acquisition separation | ✗ No | (!) Mixed (LLM still does reasoning) | ✓ Strict (tools only supply facts) |
+| Uniqueness claims require proof | ✗ No | ✗ No | ✓ Yes (exhaustive search or completeness proof) |
+| Pre-response audit gate | ✗ No | ✗ No | ✓ Yes (12-item checklist, A1–A12) |
+| Workflow hard rules + halt conditions | ✗ No | ✗ No | ✓ Yes (R1–R6, H1–H7) |
+| Three-way status (`SOLVED` / `MAPPED` / `INCOMPLETE`) | ✗ No | ✗ No | ✓ Yes |
 
 ### 8.2 Example: Arithmetic Word Problem
 
 Consider: "Alice has 3 apples. Bob gives her 2 more. How many apples does Alice have?"
 
 **LLM-first hybrid (Arithmetic Reasoning with LLM [6]):**
-LLM generates Prolog: \textbackslash\{\}total_apples(alice, 5) :- apples(alice,3), given(bob,2), sum(3,2,5).\textbackslash\{\} Prolog executes, returns 5.
+LLM generates Prolog:
+
+```prolog
+total_apples(alice, 5) :- apples(alice,3), given(bob,2), sum(3,2,5).
+```
+
+Prolog executes and returns `5`.
 
 **EVO (full nine-step workflow):**
 
-*Triage:* \textbackslash\{\}[TRIAGE: NOT COMPLEX ? reason: single arithmetic step, no ambiguity]
-*Step 1 ? Formalize:*
-\textbackslash\{\}\textbackslash\{\}prolog
+*Triage:* `[TRIAGE: NOT COMPLEX — reason: single arithmetic step, no ambiguity]`
+*Step 1 — Formalize:*
+
+```prolog
 :- dynamic active_assumption/1.
 observation(apples(alice, 3)).
 observation(given(bob, 2)).
@@ -596,18 +567,19 @@ prove(A, fact(A)) :- clause(A, true), !.
 prove(A, rule((A :- Body), Proof)) :- clause(A, Body), prove(Body, Proof).
 solved(Answer, Proof) :- conclusion(Answer), prove(conclusion(Answer), Proof).
 conclusion(total_apples(alice, N)) :- observation(apples(alice, M)), observation(given(_, K)), N is M + K.
-\textbackslash\{\}
-*Step 2 ? Derive:* \textbackslash\{\}findall\textbackslash\{\} yields \textbackslash\{\}[total_apples(alice,5) ? rule(...)]\textbackslash\{\}.
+```
 
-*Step 3 ? Consistency check:* \textbackslash\{\}inconsistent\textbackslash\{\} fails $\rightarrow$ \textbackslash\{\}[CONSISTENT]\textbackslash\{\}.
+*Step 2 — Derive:* `findall` yields `[total_apples(alice,5) - rule(...)]`.
 
-*Step 4 ? Assumption-dependence test:* No \textbackslash\{\}active_assumption/1\textbackslash\{\} predicates active $\rightarrow$ conclusion classified **ROBUST**.
+*Step 3 — Consistency check:* `inconsistent` fails → `[CONSISTENT]`.
 
-*Steps 5?6:* No tool calls required; all checks pass $\rightarrow$ \textbackslash\{\}[STATUS: SOLVED]\textbackslash\{\}.
+*Step 4 — Assumption-dependence test:* No `active_assumption/1` predicates active → conclusion classified **ROBUST**.
+
+*Steps 5–6:* No tool calls required; all checks pass → `[STATUS: SOLVED]`.
 
 *Step 8 ? Audit:* All 18 items pass.
 
-*Response:* Conclusion \textbackslash\{\}total_apples(alice, 5)\textbackslash\{\} with proof trace; ROBUST; no assumptions; no remaining limits.
+*Response:* Conclusion `total_apples(alice, 5)` with proof trace; ROBUST; no assumptions; no remaining limits.
 
 The difference is subtle but critical: in EVO, the **reasoning is done entirely in Prolog with a verified proof trace and explicit consistency and assumption-dependence checks**; the LLM is never invoked because the arithmetic is already expressible in Prolog.
 
@@ -617,8 +589,8 @@ The difference is subtle but critical: in EVO, the **reasoning is done entirely 
 - **Performance** ? The mandatory nine-step workflow, twelve-item audit, and per-conclusion assumption-dependence testing add overhead; real-time responses may be slower than pure-LLM systems.
 - **Tool-output parsing** ? Converting arbitrary tool outputs to Prolog facts is non-trivial and may introduce errors, especially for richly structured data (graphs, images, LaTeX proofs).
 - **Assumption explosion** ? Complex tasks may require many assumptions, making dependence testing combinatorially heavy (exponential in the number of assumptions in the worst case).
-- **Lean 4 bridge latency** ? Formal verification via \textbackslash\{\}lean4_exec\textbackslash\{\} adds significant latency (120 s sandbox timeout); tasks requiring many Lean 4 calls are practically constrained.
-- **Capability-class ceiling** ? The five-call tool limit per reasoning cycle means deeply nested fact-acquisition chains may terminate with \textbackslash\{\}INCOMPLETE\textbackslash\{\} rather than a complete derivation.
+- **Lean 4 bridge latency** — Formal verification via `lean4_exec` adds significant latency (120 s sandbox timeout); tasks requiring many Lean 4 calls are practically constrained.
+- **Capability-class ceiling** — The five-call tool limit per reasoning cycle means deeply nested fact-acquisition chains may terminate with `INCOMPLETE` rather than a complete derivation.
 
 ## 9 Discussion
 
@@ -642,7 +614,7 @@ This inversion ensures that the system's outputs are always justified by a symbo
 - **Interactive assumption exploration** ? Allowing users to toggle assumptions and see how conclusions change in real time.
 - **Integration with broader formal methods** ? Extending the mathematics-overlay verifier path beyond Lean 4 to other formal verification tools (Isabelle, Coq) for domain-specific deployments.
 - **Automated audit repair** ? When STEP 8 audit fails, automatically identifying which prior step to re-run and which artifact to regenerate, rather than halting entirely.
-- **Proof-trace compression** ? Compact serialisation of \textbackslash\{\}prove/2\textbackslash\{\} trees for large KBs to reduce context overhead in long reasoning chains.
+- **Proof-trace compression** — Compact serialisation of `prove/2` trees for large KBs to reduce context overhead in long reasoning chains.
 - **Progressive tool-call budget** ? Dynamic adjustment of the five-call limit based on problem complexity rather than a fixed ceiling.
 
 ## 10 Conclusion
