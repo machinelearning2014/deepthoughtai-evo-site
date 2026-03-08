@@ -15,7 +15,7 @@
 body {
   margin: 0;
   color: var(--text);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Manrope", sans-serif;
   background: var(--bg);
   min-height: 100vh;
 }
@@ -90,7 +90,8 @@ body {
 
 h1 {
   margin: 0.35rem 0 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Manrope", sans-serif;
+  font-weight: 800;
   font-size: clamp(1.6rem, 3.6vw, 2.3rem);
   line-height: 1.2;
 }
@@ -98,6 +99,10 @@ h1 {
 .sub {
   margin: 0.48rem 0 0;
   color: var(--muted);
+}
+
+.sub code {
+  font-family: inherit;
 }
 
 .paper-card {
@@ -130,6 +135,15 @@ h1 {
   color: #111111;
   line-height: 1.8;
   font-size: 1.03rem;
+}
+
+.paper-card strong,
+.paper-card em,
+.paper-card blockquote,
+.paper-card table,
+.paper-card th,
+.paper-card td {
+  font-family: inherit;
 }
 
 .paper-card ul,
