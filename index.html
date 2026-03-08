@@ -4,23 +4,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>EVO Paper</title>
-  <meta name="description" content="EVO: Prolog-first autonomous reasoning." />
+  <meta name="description" content="EVO: Prolog-first autonomous reasoning paper with full text and Open EVO link." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="shell">
-    <section class="card">
+  <main class="layout">
+    <section class="hero">
       <p class="eyebrow">Paper</p>
       <h1>EVO: Prolog-first autonomous reasoning.</h1>
       <p class="summary">Explicit-assumption Verification Orchestrator (EVO) is a Prolog-first reasoning system with explicit assumptions, proof traces, and consistency verification.</p>
-      <div class="actions">
-        <a class="btn" href="https://deepthoughtai-evo-frontend.hf.space" target="_blank" rel="noopener noreferrer">Open EVO</a>
+      <a class="btn" href="https://deepthoughtai-evo-frontend.hf.space" target="_blank" rel="noopener noreferrer">Open EVO</a>
+    </section>
+
+    <section class="reader" aria-label="Full paper text">
+      <div class="reader-head">
+        <h2>Full Paper Text</h2>
+        <p id="paper-meta">Loading text...</p>
       </div>
-      <p class="paper-link"><a href="evo-description.txt" target="_blank" rel="noopener noreferrer">Read paper text</a></p>
+      <pre id="paper-text">Loading paper text...</pre>
     </section>
   </main>
+  <script src="script.js"></script>
 </body>
 </html>
