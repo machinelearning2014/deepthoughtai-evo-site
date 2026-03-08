@@ -39,6 +39,10 @@
   <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/lib/highlight.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-  <script src="script.js"></script>
+  <script>
+    // Prevent runtime failures if CDN scripts are blocked or stale cache serves older code.
+    window.hljs = window.hljs || { highlightElement: function () {} };
+  </script>
+  <script src="script.js?v=20260308b"></script>
 </body>
 </html>
