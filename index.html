@@ -12,7 +12,7 @@
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/styles/github.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
-  <link rel="stylesheet" href="styles.css?v=20260308e" />
+  <link rel="stylesheet" href="styles.css?v=20260308f" />
 </head>
 <body>
   <div class="bg-orb bg-orb-a" aria-hidden="true"></div>
@@ -20,11 +20,15 @@
 
   <header class="site-header">
     <div class="brand">DeepThought AI</div>
-    <a class="open-evo" href="https://deepthoughtai-evo-frontend.hf.space" target="_blank" rel="noopener noreferrer">Open EVO</a>
+    <div class="header-actions">
+      <a class="nav-chip" href="#articles-home">Articles</a>
+      <a class="nav-chip" href="#products-panel">Products</a>
+      <a class="open-evo" href="https://deepthoughtai-evo-frontend.hf.space" target="_blank" rel="noopener noreferrer">Open EVO</a>
+    </div>
   </header>
 
   <main class="page-shell">
-    <section class="hero-card">
+    <section id="articles-home" class="hero-card">
       <p class="eyebrow">Research Papers</p>
       <h1>EVO papers and implementation notes.</h1>
       <p class="sub">Read the conceptual paper and the skill implementation paper from a shared article index.</p>
@@ -47,6 +51,12 @@
         </article>
       </section>
     </section>
+
+    <section id="products-panel" class="hero-card">
+      <p class="eyebrow">Products</p>
+      <h2 class="section-title">Available Products</h2>
+      <p class="sub">Placeholder section for upcoming product listings.</p>
+    </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -57,6 +67,6 @@
     // Prevent runtime failures if CDN scripts are blocked or stale cache serves older code.
     window.hljs = window.hljs || { highlightElement: function () {} };
   </script>
-  <script src="script.js?v=20260308e"></script>
+  <script src="script.js?v=20260308f"></script>
 </body>
 </html>
