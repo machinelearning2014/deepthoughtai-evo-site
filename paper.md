@@ -273,23 +273,14 @@ A maximum of five sequential tool calls is allowed per reasoning cycle. Exceedin
 
 Evaluate in order:
 
-\begin{tabular}{|p{6.8cm}|p{6.8cm}|}
-\hline
-**Check** & **Condition** \\
-\hline
-1 & Step 1 KB non-empty AND all 4 harness predicates present \\
-\hline
-2 & Step 2 produced at least one `conclusion/1` solution \\
-\hline
-3 & Step 3 confirmed consistency (or successful repair) \\
-\hline
-4 & Step 4 classified every conclusion \\
-\hline
-5 & Every tool call preceded by `need_capability/2` \\
-\hline
-6 & Semantic validation passes: conclusions satisfy `problem_spec` requirements and method constraints \\
-\hline
-\end{tabular}
+| Check | Condition |
+| --- | --- |
+| 1 | Step 1 KB non-empty AND all 4 harness predicates present |
+| 2 | Step 2 produced at least one `conclusion/1` solution |
+| 3 | Step 3 confirmed consistency (or successful repair) |
+| 4 | Step 4 classified every conclusion |
+| 5 | Every tool call preceded by `need_capability/2` |
+| 6 | Semantic validation passes: conclusions satisfy `problem_spec` requirements and method constraints |
 
 All checks pass $\rightarrow$ `[STATUS: SOLVED]`.
 Check 2 fails with non-empty KB and no capability gap $\rightarrow$ `[STATUS: MAPPED ? reason: X]`.
@@ -322,47 +313,26 @@ Forbidden in response: intuition, narrative, or speculation not in step artifact
 
 Before sending any response, verify all items:
 
-\begin{tabular}{|p{6.8cm}|p{6.8cm}|}
-\hline
-**#** & **Checklist item** \\
-\hline
-A1 & TRIAGE artifact is present in the reasoning trace \\
-\hline
-A2 & Every COMPLEX request has a Step 0 artifact \\
-\hline
-A3 & Step 1 KB had non-empty facts AND all 4 harness predicates \\
-\hline
-A4 & Step 2 used `findall` for exhaustive derivation \\
-\hline
-A5 & Step 3 consistency verdict is explicit and present \\
-\hline
-A6 & Step 4 classification exists for every conclusion in response \\
-\hline
-A7 & Every tool call is preceded by a `need_capability/2` declaration \\
-\hline
-A8 & Tool outputs were converted to Prolog facts before use \\
-\hline
-A9 & Step 6 status declaration is present and matches content \\
-\hline
-A10 & Response contains all required sections from Step 7 \\
-\hline
-A11 & No bare LaTeX (all math wrapped in `$` or `$$`) \\
-\hline
-A12 & No conclusion stated without a matching proof trace \\
-\hline
-A13 & Problem Specification section restates full `problem_spec` \\
-\hline
-A14 & Validation Report exists and analyzes each requirement \\
-\hline
-A15 & Semantic validation (Step 6 Check 6) was performed \\
-\hline
-A16 & If status is SOLVED, all requirements are fully fulfilled \\
-\hline
-A17 & If status is MAPPED, reason explains unmet requirements \\
-\hline
-A18 & Direct Answer is natural language and grounded in derived conclusions (or explicit missing-info statement) \\
-\hline
-\end{tabular}
+| # | Checklist item |
+| --- | --- |
+| A1 | TRIAGE artifact is present in the reasoning trace |
+| A2 | Every COMPLEX request has a Step 0 artifact |
+| A3 | Step 1 KB had non-empty facts AND all 4 harness predicates |
+| A4 | Step 2 used `findall` for exhaustive derivation |
+| A5 | Step 3 consistency verdict is explicit and present |
+| A6 | Step 4 classification exists for every conclusion in response |
+| A7 | Every tool call is preceded by a `need_capability/2` declaration |
+| A8 | Tool outputs were converted to Prolog facts before use |
+| A9 | Step 6 status declaration is present and matches content |
+| A10 | Response contains all required sections from Step 7 |
+| A11 | No bare LaTeX (all math wrapped in `$` or `$$`) |
+| A12 | No conclusion stated without a matching proof trace |
+| A13 | Problem Specification section restates full `problem_spec` |
+| A14 | Validation Report exists and analyzes each requirement |
+| A15 | Semantic validation (Step 6 Check 6) was performed |
+| A16 | If status is SOLVED, all requirements are fully fulfilled |
+| A17 | If status is MAPPED, reason explains unmet requirements |
+| A18 | Direct Answer is natural language and grounded in derived conclusions (or explicit missing-info statement) |
 
 All pass $\rightarrow$ send response. Any fail $\rightarrow$ HALT(H7), fix the gap, re-run from the failed step, and re-run audit.
 
