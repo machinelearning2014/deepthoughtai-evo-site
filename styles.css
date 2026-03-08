@@ -97,10 +97,28 @@ h1 {
   margin: 0 0 12px;
   color: #d4e5f7;
   font-size: 1rem;
+  white-space: pre-line;
 }
 
-.paper p.bullet {
-  padding-left: 0.35rem;
+.paper ul {
+  margin: 0 0 14px 1.2rem;
+  padding: 0;
+}
+
+.paper li {
+  margin: 0 0 8px;
+  color: #d4e5f7;
+}
+
+.paper pre {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  color: #dcecff;
+  overflow-x: auto;
+  white-space: pre-wrap;
 }
 
 @media (max-width: 700px) {
