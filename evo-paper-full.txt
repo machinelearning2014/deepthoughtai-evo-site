@@ -1,9 +1,4 @@
-EVO: Prolog-First Autonomous Reasoning
-Full extracted text from the uploaded PDF.
-
-
 === PAGE 1 ===
-
 EVO: Prolog-First Autonomous Reasoning
 EVO: A Prolog-First Autonomous
 Reasoning System with Explicit
@@ -45,7 +40,6 @@ reasoning proceeds by Prolog derivation.
 1
 
 === PAGE 2 ===
-
 EVO: Prolog-First Autonomous Reasoning
 2.Derivation-based – Conclusions are valid only if they are derived from facts
 and rules via a proof trace (the prove/2 meta-interpreter).
@@ -83,7 +77,6 @@ proaches, showing that EVO’s architecture inverts the usual LLM-centric design
 2
 
 === PAGE 3 ===
-
 EVO: Prolog-First Autonomous Reasoning
 2 Related Work
 Neuro-symbolic AI. Combining neural networks with symbolic reasoning has a
@@ -123,7 +116,6 @@ The system consists of four layers:
 3
 
 === PAGE 4 ===
-
 EVO: Prolog-First Autonomous Reasoning
 •Prolog Reasoning Core – Contains the KB, inference rules, prove/2 meta-interpreter,
 consistency checker, and assumption manager.
@@ -161,7 +153,6 @@ abled or disabled. The system maintains a set of active assumptions Aactive . An
 4
 
 === PAGE 5 ===
-
 EVO: Prolog-First Autonomous Reasoning
 inference that depends on an assumption must record that dependence in the proof
 trace.
@@ -199,7 +190,6 @@ Eight halt conditions trigger an immediate stop:
 5
 
 === PAGE 6 ===
-
 EVO: Prolog-First Autonomous Reasoning
 Code Trigger
 H1 STEP 0 triggered but
@@ -245,7 +235,6 @@ HALT(H1): ask only the blocking questions; wait; re-run Step 0.
 6
 
 === PAGE 7 ===
-
 EVO: Prolog-First Autonomous Reasoning
 If both A and B are derivable, treat as inconsistency and repair KB. Do not proceed
 to Step 1 until problem_spec/1 is derivable.
@@ -286,7 +275,6 @@ conclusion_with_status(Answer, Status).
 7
 
 === PAGE 8 ===
-
 EVO: Prolog-First Autonomous Reasoning
 % fully_fulfills(RequirementName)
 % partially_fulfills(RequirementName, MissingAspect)
@@ -326,7 +314,6 @@ A tool must not be invoked unless either:
 8
 
 === PAGE 9 ===
-
 EVO: Prolog-First Autonomous Reasoning
 Invoking a tool without these preconditions triggers HALT(H6).
 Tool call protocol:
@@ -371,7 +358,6 @@ match problem_spec] and HALT(H8). Any other check fails or halt triggered →
 9
 
 === PAGE 10 ===
-
 EVO: Prolog-First Autonomous Reasoning
 5.9 Step 7 – Response Construction
 Input required: Step 6 artifact + all prior artifacts. Output artifact: Structured
@@ -403,7 +389,6 @@ Before sending any response, verify all items:
 10
 
 === PAGE 11 ===
-
 EVO: Prolog-First Autonomous Reasoning
 # Checklist item
 A1 TRIAGE artifact is present in the rea-
@@ -451,7 +436,6 @@ Prolog may request only these capability classes (in priority order):
 11
 
 === PAGE 12 ===
-
 EVO: Prolog-First Autonomous Reasoning
 Capability Concrete tools Notes
 internal_knowledge (no tool call) Check first — answer
@@ -501,7 +485,6 @@ Tool outputs are converted into Prolog facts via a conservative mapping:
 12
 
 === PAGE 13 ===
-
 EVO: Prolog-First Autonomous Reasoning
 •Numerical results become observation(value(Name, Value)) .
 •Textual facts become observation(text(Content)) .
@@ -543,7 +526,6 @@ prove(Body, Proof).
 13
 
 === PAGE 14 ===
-
 EVO: Prolog-First Autonomous Reasoning
 7.2 Consistency Checker
 inconsistent :-
@@ -586,7 +568,6 @@ ings, or timeouts. Mandatory hygiene rules:
 14
 
 === PAGE 15 ===
-
 EVO: Prolog-First Autonomous Reasoning
 ified via assert /retract .
 •Discontiguous declarations: :- discontiguous predicate/arity. when clauses
@@ -626,7 +607,6 @@ slash), not a single backslash.
 15
 
 === PAGE 16 ===
-
 EVO: Prolog-First Autonomous Reasoning
 7.7 Use Case Overlay – Legal Support
 The deployed system includes a dedicated legal-support assistant mode selected
@@ -668,7 +648,6 @@ dence)
 16
 
 === PAGE 17 ===
-
 EVO: Prolog-First Autonomous Reasoning
 •Regulated QA for engineering changes (requirements traceability, contradiction
 detection, sign-off artifacts)
@@ -728,7 +707,6 @@ LLM-first hybrid (Arithmetic Reasoning with LLM [6]): LLM generates
 17
 
 === PAGE 18 ===
-
 EVO: Prolog-First Autonomous Reasoning
 Prolog: \{}total_apples(alice, 5) :- apples(alice,3), given(bob,2), sum(3,2,5).\{} Pro-
 log executes, returns 5.
@@ -773,7 +751,6 @@ tically constrained.
 18
 
 === PAGE 19 ===
-
 EVO: Prolog-First Autonomous Reasoning
 deeply nested fact-acquisition chains may terminate with \{}INCOMPLETE\{} rather
 than a complete derivation.
@@ -814,7 +791,6 @@ which prior step to re-run and which artifact to regenerate, rather than halting
 19
 
 === PAGE 20 ===
-
 EVO: Prolog-First Autonomous Reasoning
 entirely.
 •Proof-trace compression – Compact serialisation of \{}prove/2\{} trees for
@@ -852,7 +828,6 @@ based Chain-of-Thought,” arXiv:2407.14562 , 2024.
 20
 
 === PAGE 21 ===
-
 EVO: Prolog-First Autonomous Reasoning
 eration & Permutation,” arXiv:2405.17893 , 2024.
 [7] The Coq Development Team, The Coq Proof Assistant Reference Manual , INRIA,

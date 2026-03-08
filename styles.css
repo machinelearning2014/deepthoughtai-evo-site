@@ -105,6 +105,11 @@ h1 {
   padding: 0;
 }
 
+.paper ol {
+  margin: 0 0 14px 1.2rem;
+  padding: 0;
+}
+
 .paper li {
   margin: 0 0 8px;
   color: #d4e5f7;
