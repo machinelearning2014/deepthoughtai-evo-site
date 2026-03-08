@@ -1,0 +1,23 @@
+EVO (Explicit-assumption Verification Orchestrator)
+
+EVO is a Prolog-first autonomous reasoning system designed for transparent, auditable, and logically consistent conclusions.
+
+Core idea
+- All reasoning starts with formal modeling in Prolog.
+- A conclusion is accepted only when it can be derived through Prolog inference with an explicit proof trace.
+- External tools (including LLMs) are used only to acquire missing facts, never to replace symbolic reasoning.
+
+Reasoning discipline
+- Assumptions are represented as first-class objects.
+- Assumptions can be enabled, disabled, swapped, and tested for impact.
+- Key conclusions are tested for assumption dependence.
+- A consistency check is required before presenting final answers.
+
+Architecture
+- Prolog reasoning core: facts, rules, assumptions, constraints, and proof tracing.
+- Tool interface: capability-based fact acquisition.
+- Optional domain verifiers/overlays: domain-specific connectors without changing core semantics.
+- User interface: presents conclusions, proofs, and assumption dependencies.
+
+Why EVO
+EVO prioritizes verifiable derivation over intuitive generation. This provides stronger traceability and consistency guarantees than purely LLM-centered approaches while retaining flexibility to integrate external knowledge sources when needed.

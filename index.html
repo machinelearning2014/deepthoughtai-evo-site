@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeepThought AI</title>
-  <meta name="description" content="DeepThought AI - practical machine intelligence experiments and tools." />
+  <meta name="description" content="DeepThought AI and EVO: Prolog-first autonomous reasoning with explicit assumptions and consistency verification." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -14,32 +14,72 @@
   <div class="background-glow" aria-hidden="true"></div>
 
   <header class="site-header">
-    <div class="brand"></div>
+    <div class="brand">DeepThought AI</div>
     <a class="header-link" href="https://deepthoughtai-evo-frontend.hf.space" target="_blank" rel="noopener noreferrer">Open EVO</a>
   </header>
 
-  <main class="hero">
-    <section class="hero-copy reveal">
-      <h1>DeepThought AI</h1>
-      <p class="subtitle">Enhancing AI intelligence through better Agentic AI orchestration</p>
+  <main class="page-content">
+    <section class="hero reveal">
+      <p class="kicker">Explicit-assumption Verification Orchestrator</p>
+      <h1>EVO: Prolog-first autonomous reasoning.</h1>
+      <p class="subtitle">EVO models reasoning tasks in Prolog first, derives conclusions with proof traces, and treats assumptions as explicit, testable objects.</p>
       <div class="cta-group">
-        <!--<a class="btn btn-primary" href="https://deepthoughtai-evo-frontend.hf.space" target="_blank" rel="noopener noreferrer">Launch DeepThoughtAI EVO</a> -->
-        <!--<a class="btn btn-secondary" href="https://github.com/machinelearning2014" target="_blank" rel="noopener noreferrer">View GitHub Profile</a> -->
+        <a class="btn btn-primary" href="https://deepthoughtai-evo-frontend.hf.space" target="_blank" rel="noopener noreferrer">Launch EVO Frontend</a>
+        <a class="btn btn-secondary" href="https://github.com/machinelearning2014/deepthoughtai-evo-site" target="_blank" rel="noopener noreferrer">View Repository</a>
       </div>
     </section>
-    <section class="hero-copy reveal">
-      <h2>EVO</h2>
-      <p class="subtitle">Explicit-assumption Verification Orchestration</p>
+
+    <section class="panel reveal-delay">
+      <h2>Document Summary</h2>
+      <p>From the document <em>Explicit-Assumption Verification Orchestrator</em>: EVO is designed so symbolic reasoning stays in Prolog, while tools like LLMs are used only to supply missing facts. Every accepted answer must be derivable and auditable.</p>
+      <p>The system enforces consistency checks, assumption-dependence testing, and a mandatory workflow that prevents silent skipping of reasoning steps.</p>
     </section>
-    <!--<section class="hero-card reveal-delay" --> 
-      <!--<h2>Featured Link</h2>--> 
-      <!--<p>Explore the active frontend deployment directly:</p>--> 
-      <!--<a class="card-link" href="https://deepthoughtai-evo-frontend.hf.space" target="_blank" rel="noopener noreferrer">https://deepthoughtai-evo-frontend.hf.space</a>--> 
-    <!--</section>-->
+
+    <section class="panel reveal">
+      <h2>Core Principles</h2>
+      <div class="principles-grid">
+        <article class="principle-card">
+          <h3>Prolog-first</h3>
+          <p>Reasoning begins as a formal Prolog knowledge base, not as free-form narrative inference.</p>
+        </article>
+        <article class="principle-card">
+          <h3>Derivation-based</h3>
+          <p>Conclusions are valid only when derived from facts and rules with explicit proof traces.</p>
+        </article>
+        <article class="principle-card">
+          <h3>Explicit Assumptions</h3>
+          <p>Assumptions are first-class and can be enabled, disabled, swapped, and dependency-tested.</p>
+        </article>
+        <article class="principle-card">
+          <h3>Consistency Verification</h3>
+          <p>The knowledge base is checked for inconsistency before final responses are accepted.</p>
+        </article>
+        <article class="principle-card">
+          <h3>Tool Discipline</h3>
+          <p>External tools inject facts only. They do not replace symbolic inference.</p>
+        </article>
+        <article class="principle-card">
+          <h3>Overlay Extensibility</h3>
+          <p>Domain overlays can be added without changing core reasoning semantics.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel reveal-delay">
+      <h2>EVO Text Description</h2>
+      <div class="doc-text">
+        <p>EVO (Explicit-assumption Verification Orchestrator) is a Prolog-first autonomous reasoning system built for traceable, consistent, and auditable conclusions. Instead of treating large language models as primary reasoners, EVO formalizes each task as facts, rules, assumptions, and constraints inside a Prolog knowledge base.</p>
+        <p>Reasoning is accepted only when a target conclusion is derivable through Prolog inference with a proof trace. If required information is missing, EVO can call external tools, but those outputs must be mapped back into explicit Prolog facts before any new inference is attempted.</p>
+        <p>A key design choice is explicit assumptions. Assumptions are not hidden bridges: they are represented as first-class objects that can be toggled and stress-tested. EVO checks whether key conclusions still hold when assumptions are removed, allowing users to see robustness and dependency directly.</p>
+        <p>Before answering, EVO performs consistency verification. If integrity constraints are violated, the system halts or repairs the knowledge base rather than returning an ungrounded response. This creates a stronger guarantee of logical coherence than purely neural pipelines.</p>
+        <p>The architecture combines a Prolog reasoning core, a controlled tool interface, optional domain verifiers, and a user-facing presentation layer for conclusions, proofs, and assumption impacts. This pattern supports domain overlays such as mathematics and legal support while preserving the same core derivation discipline.</p>
+      </div>
+      <p class="doc-link"><a href="evo-description.txt" target="_blank" rel="noopener noreferrer">Read EVO description as plain text</a></p>
+    </section>
   </main>
 
   <footer class="site-footer">
-    <!--<p>Hosted with GitHub Pages</p>-->
+    <p>DeepThought AI - Hosted on GitHub Pages</p>
   </footer>
 
   <script src="script.js"></script>
