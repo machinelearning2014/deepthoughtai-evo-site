@@ -9,14 +9,20 @@ const ARTICLES = [
   {
     id: "evo-paper",
     title: "EVO: A Prolog-First Autonomous Reasoning System with Explicit Assumptions and Consistency Verification",
-    file: "paper.md?v=20260308d",
+    file: "paper.md?v=20260308e",
     summary: "Conceptual architecture, workflow, and evaluation of EVO.",
   },
   {
     id: "evo-skill-paper",
     title: "EVO Skill: Explicit-Assumption Verification Orchestrator as a CLI-Installable Toolchain",
-    file: "evo-skill-paper.md?v=20260308d",
+    file: "evo-skill-paper.md?v=20260308e",
     summary: "Implementation-focused paper covering the installable CLI skill and toolchain.",
+  },
+  {
+    id: "uncertainty-paper",
+    title: "Relocating Uncertainty in Hybrid LLM-Symbolic Systems: Error-Mode Transformation Through Stratified Epistemic Architecture",
+    file: "uncertainty-hybrid-systems.md?v=20260308e",
+    summary: "Hybrid LLM-Prolog architecture focused on bounded uncertainty and governance-oriented reasoning.",
   },
 ];
 
