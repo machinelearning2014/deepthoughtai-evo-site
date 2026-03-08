@@ -27,18 +27,45 @@
   </header>
 
   <main class="page-shell">
-    <section class="hero-card">
+    <section id="products-home" class="hero-card">
       <p class="eyebrow">Products</p>
       <h1>Available Products</h1>
-      <p class="sub">Placeholder page for upcoming DeepThought AI product listings.</p>
+      <p class="sub">Browse the current product placeholders and jump between them from the left navigation.</p>
     </section>
 
-    <section class="content-single">
-      <article class="paper-card">
-        <p class="article-kicker">Placeholder</p>
-        <h2 class="section-title">Product Catalog Coming Soon</h2>
-        <p class="sub">This page is reserved for product descriptions, links, and launch details.</p>
-      </article>
+    <section class="content-grid">
+      <aside class="article-nav-card">
+        <div class="article-nav-head">
+          <p class="article-nav-label">Product Index</p>
+          <p class="article-nav-copy">Jump to any product placeholder in the main panel.</p>
+        </div>
+        <nav class="article-nav" aria-label="Product navigation">
+          <a class="article-link" href="#evo-chat">
+            <span class="article-link-title">EVO Chat</span>
+            <span class="article-link-copy">Placeholder for the core chat product experience.</span>
+          </a>
+          <a class="article-link" href="#evo-skills">
+            <span class="article-link-title">EVO Skills</span>
+            <span class="article-link-copy">Placeholder for skill installation and workflow products.</span>
+          </a>
+        </nav>
+      </aside>
+
+      <section class="paper-stack" aria-live="polite">
+        <article id="evo-chat" class="paper-card article-section">
+          <p class="article-kicker">Product</p>
+          <h2 class="article-title">EVO Chat</h2>
+          <p class="sub">Placeholder for the primary conversational product built around EVO reasoning workflows.</p>
+          <p>Reserved for future product details, feature descriptions, screenshots, and launch links.</p>
+        </article>
+
+        <article id="evo-skills" class="paper-card article-section">
+          <p class="article-kicker">Product</p>
+          <h2 class="article-title">EVO Skills</h2>
+          <p class="sub">Placeholder for skill-based product offerings, installation paths, and packaged workflows.</p>
+          <p>Reserved for future documentation covering skill catalogs, integration options, and product availability.</p>
+        </article>
+      </section>
     </section>
   </main>
 </body>
