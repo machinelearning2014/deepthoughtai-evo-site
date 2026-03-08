@@ -5,6 +5,21 @@ marked.setOptions({
   headerIds: true,
 });
 
+const ARTICLES = [
+  {
+    id: "evo-paper",
+    title: "EVO: A Prolog-First Autonomous Reasoning System with Explicit Assumptions and Consistency Verification",
+    file: "paper.md?v=20260308d",
+    summary: "Conceptual architecture, workflow, and evaluation of EVO.",
+  },
+  {
+    id: "evo-skill-paper",
+    title: "EVO Skill: Explicit-Assumption Verification Orchestrator as a CLI-Installable Toolchain",
+    file: "evo-skill-paper.md?v=20260308d",
+    summary: "Implementation-focused paper covering the installable CLI skill and toolchain.",
+  },
+];
+
 function convertLatexTabularToMarkdown(markdown) {
   const tabularRegex = /\\begin\{tabular\}\{[^}]*\}([\s\S]*?)\\end\{tabular\}/g;
   return markdown.replace(tabularRegex, (_, body) => {
@@ -34,40 +49,85 @@ function convertLatexTabularToMarkdown(markdown) {
   });
 }
 
-async function loadPaper() {
-  const target = document.getElementById("paper-content");
-  if (!target) return;
+function stripLeadingTitle(markdown) {
+  return markdown.replace(/^\s*# .+\r?\n+/, "");
+}
 
-  try {
-    const res = await fetch("paper.md?v=20260308c", { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+function renderEnhancements(target) {
+  if (window.hljs) {
+    target.querySelectorAll("pre code").forEach((el) => {
+      window.hljs.highlightElement(el);
+    });
+  }
 
-    const md = await res.text();
-    const normalized = convertLatexTabularToMarkdown(md);
-    target.innerHTML = marked.parse(normalized);
-
-    // Highlight code only when highlight.js is available.
-    if (window.hljs) {
-      target.querySelectorAll("pre code").forEach((el) => {
-        window.hljs.highlightElement(el);
-      });
-    }
-
-    // Render LaTeX only when KaTeX auto-render is available.
-    if (window.renderMathInElement) {
-      window.renderMathInElement(target, {
-        delimiters: [
-          { left: "$$", right: "$$", display: true },
-          { left: "$", right: "$", display: false },
-          { left: "\\(", right: "\\)", display: false },
-          { left: "\\[", right: "\\]", display: true },
-        ],
-        throwOnError: false,
-      });
-    }
-  } catch (err) {
-    target.innerHTML = `<p class="loading">Failed to load paper: ${String(err)}</p>`;
+  if (window.renderMathInElement) {
+    window.renderMathInElement(target, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false },
+        { left: "\\(", right: "\\)", display: false },
+        { left: "\\[", right: "\\]", display: true },
+      ],
+      throwOnError: false,
+    });
   }
 }
 
-loadPaper();
+function renderNav(target) {
+  target.innerHTML = ARTICLES.map(
+    (article) => `
+      <a class="article-link" href="#${article.id}">
+        <span class="article-link-title">${article.title}</span>
+        <span class="article-link-copy">${article.summary}</span>
+      </a>
+    `
+  ).join("");
+}
+
+function renderArticles(target, articles) {
+  target.innerHTML = articles
+    .map(
+      (article) => `
+        <article id="${article.id}" class="paper-card article-section">
+          <p class="article-kicker">Paper</p>
+          <h2 class="article-title">${article.title}</h2>
+          <div class="article-body">${article.html}</div>
+        </article>
+      `
+    )
+    .join("");
+
+  target.querySelectorAll(".article-body").forEach((body) => {
+    renderEnhancements(body);
+  });
+}
+
+async function loadPapers() {
+  const navTarget = document.getElementById("article-nav");
+  const contentTarget = document.getElementById("paper-content");
+  if (!navTarget || !contentTarget) return;
+
+  renderNav(navTarget);
+
+  try {
+    const loaded = await Promise.all(
+      ARTICLES.map(async (article) => {
+        const res = await fetch(article.file, { cache: "no-store" });
+        if (!res.ok) throw new Error(`${article.file}: HTTP ${res.status}`);
+
+        const md = await res.text();
+        const normalized = stripLeadingTitle(convertLatexTabularToMarkdown(md));
+        return {
+          ...article,
+          html: marked.parse(normalized),
+        };
+      })
+    );
+
+    renderArticles(contentTarget, loaded);
+  } catch (err) {
+    contentTarget.innerHTML = `<article class="paper-card"><p class="loading">Failed to load papers: ${String(err)}</p></article>`;
+  }
+}
+
+loadPapers();

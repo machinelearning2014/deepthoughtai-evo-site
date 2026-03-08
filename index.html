@@ -12,7 +12,7 @@
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/styles/github.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
-  <link rel="stylesheet" href="styles.css?v=20260308c" />
+  <link rel="stylesheet" href="styles.css?v=20260308d" />
 </head>
 <body>
   <div class="bg-orb bg-orb-a" aria-hidden="true"></div>
@@ -25,14 +25,28 @@
 
   <main class="page-shell">
     <section class="hero-card">
-      <p class="eyebrow">Research Paper</p>
-      <h1>EVO: Prolog-first autonomous reasoning.</h1>
-      <!--<p class="sub">Rendered from <code>Explicit-Assumption_Verification_Orchestrator.tex</code></p>-->
+      <p class="eyebrow">Research Papers</p>
+      <h1>EVO papers and implementation notes.</h1>
+      <p class="sub">Read the conceptual paper and the skill implementation paper from a shared article index.</p>
     </section>
 
-    <article id="paper-content" class="paper-card" aria-live="polite">
-      <p class="loading">Loading paper...</p>
-    </article>
+    <section class="content-grid">
+      <aside class="article-nav-card">
+        <div class="article-nav-head">
+          <p class="article-nav-label">Article Index</p>
+          <p class="article-nav-copy">Jump to any paper in the main reading panel.</p>
+        </div>
+        <nav id="article-nav" class="article-nav" aria-label="Paper navigation">
+          <p class="loading">Loading articles...</p>
+        </nav>
+      </aside>
+
+      <section id="paper-content" class="paper-stack" aria-live="polite">
+        <article class="paper-card">
+          <p class="loading">Loading papers...</p>
+        </article>
+      </section>
+    </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -43,6 +57,6 @@
     // Prevent runtime failures if CDN scripts are blocked or stale cache serves older code.
     window.hljs = window.hljs || { highlightElement: function () {} };
   </script>
-  <script src="script.js?v=20260308b"></script>
+  <script src="script.js?v=20260308d"></script>
 </body>
 </html>
