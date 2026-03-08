@@ -1,8 +1,8 @@
 :root {
   --bg: #081420;
   --bg-soft: #102335;
-  --surface: rgba(15, 34, 52, 0.82);
-  --surface-2: rgba(10, 24, 38, 0.9);
+  --surface: rgba(15, 34, 52, 0.84);
+  --surface-2: rgba(11, 26, 40, 0.92);
   --text: #eaf3ff;
   --muted: #afc2d9;
   --accent: #1cd7a9;
@@ -25,9 +25,9 @@ body {
 }
 
 .layout {
-  width: min(1120px, 94vw);
+  width: min(980px, 94vw);
   margin: 0 auto;
-  padding: 28px 0 24px;
+  padding: 28px 0 42px;
   display: grid;
   gap: 14px;
 }
@@ -73,47 +73,34 @@ h1 {
   padding: 11px 17px;
 }
 
-.reader {
+.paper {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 16px;
+  padding: clamp(16px, 2.6vw, 28px);
+  line-height: 1.78;
 }
 
-.reader-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.reader-head h2 {
-  margin: 0;
+.paper h2 {
+  margin: 0 0 14px;
   font-family: "Space Grotesk", sans-serif;
-  font-size: 1.05rem;
 }
 
-#paper-meta {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.9rem;
+.paper h3 {
+  margin: 20px 0 8px;
+  font-family: "Space Grotesk", sans-serif;
+  color: #d9ecff;
+  font-size: 1.08rem;
 }
 
-#paper-text {
-  margin: 0;
-  padding: 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.02);
-  color: #d8e8fa;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 0.88rem;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  max-height: calc(100vh - 260px);
-  overflow: auto;
+.paper p {
+  margin: 0 0 12px;
+  color: #d4e5f7;
+  font-size: 1rem;
+}
+
+.paper p.bullet {
+  padding-left: 0.35rem;
 }
 
 @media (max-width: 700px) {
@@ -122,12 +109,7 @@ h1 {
     padding-top: 14px;
   }
 
-  .reader-head {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  #paper-text {
-    max-height: none;
+  .paper {
+    font-size: 0.97rem;
   }
 }
