@@ -1,15 +1,14 @@
 ## Abstract
 
-We present **EVO**, an autonomous reasoning system whose core tenet is *Prolog-first*: all reasoning begins with formal modeling in Prolog, and every conclusion must be derived via Prolog inference with explicit proof traces. EVO enforces a strict workflow that includes consistency verification, assumption-dependence testing, and a clear separation between symbolic reasoning and fact-acquisition tools (including large language models). The system treats assumptions as first-class objects that can be enabled, disabled, or swapped. We describe the formal model, the mandatory reasoning steps, the tool-integration protocol, and the philosophical underpinnings that distinguish EVO from existing neuro-symbolic or LLM-centric hybrids. We also describe domain overlays as use cases (including mathematics and Australian legal support) that reuse the same core reasoning engine while adding domain-specific policies and connectors. EVO provides guarantees of logical consistency and traceability that are absent in purely neural approaches while remaining flexible enough to incorporate external knowledge when Prolog's own deduction reaches its limits.
+We present **EVO**, an autonomous reasoning system whose core tenet is *Prolog-first*: all reasoning begins with formal modeling in Prolog, and every conclusion must be derived via Prolog inference with explicit proof traces. EVO enforces a strict workflow that includes consistency verification, assumption-dependence testing, and a clear separation between symbolic reasoning and fact-acquisition tools (including large language models). The system treats assumptions as first-class objects that can be enabled, disabled, or swapped. We describe the formal model, the mandatory reasoning steps, the tool-integration protocol, and the philosophical underpinnings that distinguish EVO from existing neuro-symbolic or LLM-centric hybrids. EVO provides guarantees of logical consistency and traceability that are absent in purely neural approaches while remaining flexible enough to incorporate external knowledge when Prolog's own deduction reaches its limits.
 
-**Keywords:** autonomous reasoning, Prolog-first, explicit assumptions, consistency verification, neuro-symbolic AI, proof traces, use-case overlays.
+**Keywords:** autonomous reasoning, Prolog-first, explicit assumptions, consistency verification, neuro-symbolic AI, proof traces.
 
 ## 1 Introduction
 
 Large language models (LLMs) have demonstrated remarkable fluency and breadth of knowledge, yet they remain prone to hallucination, logical inconsistency, and a lack of verifiable reasoning traces. Neuro-symbolic approaches attempt to combine neural networks with symbolic reasoning, but most designs keep the LLM as the primary interface, using the symbolic component merely as a refinement or verification step. This paper presents a radical alternative: a system in which **Prolog is the primary reasoner**, and the LLM (or any other tool) is permitted only to supply missing facts, never to replace the reasoning itself.
 
-The EVO system (short for **E**xplicit-assumption **V**erification **O**rchestrator) is built on seven core principles:
-Domain-specific overlays (for example, mathematics verification or legal-support retrieval policy) are treated as optional use cases layered on top of the same core derivation discipline.
+The EVO system (short for **E**xplicit-assumption **V**erification **O**rchestrator) is built on six core principles:
 
 1. **Prolog-first** - Every task is first formalized as a Prolog knowledge base (KB); reasoning proceeds by Prolog derivation.
 2. **Derivation-based** - Conclusions are valid only if they are derived from facts and rules via a proof trace (the `prove/2` meta-interpreter).
@@ -17,8 +16,6 @@ Domain-specific overlays (for example, mathematics verification or legal-support
 4. **Consistency verification** - Before any response, the KB must pass a consistency check (`inconsistent/0` fails).
 5. **Assumption-dependence testing** - Every key conclusion is tested for robustness against assumption removal.
 6. **Tools only for facts** - External tools (LLMs, calculators, web search) may supply missing facts but never perform inference.
-7. **Overlay extensibility** - Domain-specific verifiers/connectors can be attached as use cases without changing the core Prolog-first reasoning semantics.
-
 These principles yield a system that provides **logical consistency guarantees**, **complete traceability**, and **explicit awareness of assumption dependence** - features that are absent in both pure-LLM and existing LLM-first hybrid systems.
 
 ### 1.1 Contributions
@@ -27,8 +24,7 @@ These principles yield a system that provides **logical consistency guarantees**
 - A **mandatory nine-step reasoning workflow** governed by eight hard rules, eight halt conditions, and a mandatory pre-response audit that enforces derivation, consistency checking, assumption-dependence testing, semantic validation, and uniqueness proofs.
 - A **complexity triage gate** with explicit TRIAGE ARTIFACTs that determines whether problem-analysis pre-processing is required before formalisation.
 - A **tool-integration protocol** with ten capability classes, output validation signals, and a five-call limit that strictly separates symbolic reasoning from fact acquisition.
-- A **use-case overlay pattern** for attaching domain constraints/connectors (for example, mathematics and legal-support) on top of the same core workflow.
-- An **implementation blueprint** covering the Prolog meta-interpreter, tool interfaces, and Prolog code hygiene rules, plus optional domain overlays.
+- An **implementation blueprint** covering the Prolog meta-interpreter, tool interfaces, and Prolog code hygiene rules.
 - A **philosophical and practical comparison** with existing neuro-symbolic approaches, showing that EVO's architecture inverts the usual LLM-centric design.
 
 ## 2 Related Work
@@ -36,8 +32,6 @@ These principles yield a system that provides **logical consistency guarantees**
 **Neuro-symbolic AI.** Combining neural networks with symbolic reasoning has a long history [1,2]. Recent work often uses neural models to guide symbolic search or to translate natural language into logical forms [3,4]. EVO differs by making the symbolic engine (Prolog) the primary driver; neural components are relegated to fact supply.
 
 **LLM + logic-programming hybrids.** Two recent papers explicitly combine Prolog with LLMs. *Thought-Like-Pro* [5] uses imitation learning to train an LLM to imitate Prolog-verified chain-of-thought trajectories; the LLM generates rules, Prolog derives results, and the trajectories are converted to natural-language CoT for training. *Arithmetic Reasoning with LLM* [6] has the LLM extract predicates and generate Prolog programs for arithmetic problems, using Prolog as a precise calculator. Both are **LLM-first**: the LLM is the primary problem-understander, and Prolog serves as a backend. EVO is **Prolog-first**, with the LLM acting only as a fact-supplier when Prolog cannot deduce a required primitive.
-
-**Formal verification in reasoning systems.** Systems like Coq [7], Isabelle [8], and Lean [9] provide rigorous proof verification. EVO's core remains Prolog-first and domain-agnostic; in the mathematics use case, a Lean 4 overlay can be attached for formal theorem verification while preserving the same orchestration workflow.
 
 **Prolog meta-interpreters.** The use of Prolog to reason about Prolog proofs (`prove/2`) is a classic technique [10]. EVO extends this with explicit assumption tracking and consistency gates.
 
@@ -60,7 +54,6 @@ The system consists of four layers:
 
 - **Prolog Reasoning Core** - Contains the KB, inference rules, `prove/2` meta-interpreter, consistency checker, and assumption manager.
 - **Tool Interface** - Listens for `need_capability/2` requests and dispatches to appropriate tools (LLM, calculator, web search, etc.).
-- **Optional Domain Verifier Bridge** - When a domain overlay requires formal verification (for example, mathematics), routes claims to an external verifier (for example, Lean 4); Prolog may suggest proof strategies but does not execute external proofs itself.
 - **User Interface** - Presents derived conclusions, proof summaries, assumption dependencies, and any remaining limits.
 
 All layers are orchestrated by the mandatory reasoning workflow (§5).
@@ -234,8 +227,7 @@ Any ASSUMPTION-DEPENDENT conclusion omitted from this test must not appear in th
 **Output artifact:** Tool output converted to Prolog facts and validation facts + re-run of Steps 2-3 with enriched KB.
 
 A tool **must not** be invoked unless either:
-1. Prolog emitted `need_capability(Capability, Purpose)`, or
-2. the task is a formal mathematical proof requiring `lean4_exec`.
+1. Prolog emitted `need_capability(Capability, Purpose)`.
 
 Invoking a tool without these preconditions triggers HALT(H6).
 
@@ -248,8 +240,6 @@ Invoking a tool without these preconditions triggers HALT(H6).
 6. Re-run Steps 2 and 3 with enriched KB.
 
 Tool output may not introduce new `active_assumption/1` predicates, replace Prolog derivation, or be cited directly in the final response without Prolog re-derivation.
-
-**Formal mathematics exception (non-negotiable):** any theorem, lemma, or formal mathematical statement must use `lean4_exec` for final formal verification. Prolog may plan proof structure, but no other tool may substitute for Lean 4 on formal proofs.
 
 A maximum of five sequential tool calls is allowed per reasoning cycle. Exceeding this limit without resolution triggers `HALT - INCOMPLETE(tool_loop: <description>)`.
 
@@ -333,7 +323,6 @@ Prolog may request only these capability classes (in priority order):
 | --- | --- | --- |
 | `internal_knowledge` | (no tool call) | **Check first** — answer from training data when sufficient |
 | `logical_reasoning` | `prolog_exec` |  |
-| `formal_verification` | `lean4_exec`, `mathlib_check`, `mathlib_search` | `lean4_exec` is mandatory for formal theorem/lemma verification |
 | `computation_programmatic` | `python_exec` |  |
 | `computation_ml` | `xgboost_exec`, `vae_exec`, `gan_exec`, `decision_tree_exec`, `matplotlib_exec`, `networkx_exec` |  |
 | `computation_symbolic` | `sympy_exec` |  |
@@ -342,7 +331,7 @@ Prolog may request only these capability classes (in priority order):
 | `workspace_management` | `read_file`, `write_file`, `list_files`, `search_files`, `run_command`, `replace_in_file` |  |
 | `context_memory` | `query_kb`, `retrieve_artifact` | Session KB queries and artifact retrieval |
 
-**Capability priority rule:** Always try `internal_knowledge` first. Escalate only if it cannot supply the required fact (e.g. live data or exact computation). Formal-mathematics tasks still require `lean4_exec`.
+**Capability priority rule:** Always try `internal_knowledge` first. Escalate only if it cannot supply the required fact (e.g. live data or exact computation).
 
 ### 6.2 Tool Output Validation
 
@@ -363,20 +352,6 @@ Tool outputs are converted into Prolog facts via a conservative mapping:
 - Structural data (JSON, tables) is broken into atomic facts: `acquired_fact(source(Tool), content(Result))`.
 
 These facts are asserted into the KB, and derivation is re-attempted from Step 2. Tool outputs may **not** introduce new `active_assumption/1` predicates; if a tool result requires an inferential bridge it must be explicitly modelled as an assumption with justification.
-
-### 6.4 Use Case Overlay Example - Legal-Support Retrieval (Australia)
-
-In legal-support mode, EVO applies an additional source-discipline layer:
-
-1. Run `legal_retrieve` first against the indexed legal corpus.
-2. If retrieval is empty or insufficient, run `legal_ingest_authoritative` with the current legal query (and jurisdiction/type filters when available), then re-run `legal_retrieve`.
-3. Use `legal_ingest` for explicit single-document ingestion when a specific source URL or text is provided.
-4. Use `legal_corpus_stats` to verify corpus coverage and ingestion progress.
-
-Authoritative Australian sources prioritised by the implementation include:
-`legislation.gov.au`, state/territory legislation registries, `hcourt.gov.au`, `fedcourt.gov.au`, `caselaw.nsw.gov.au`, and `austlii.edu.au` (primarily for discovery/cross-reference).
-
-Legal retrieval outputs are expected to carry citation metadata (for example: citation, neutral citation, court, decision date, authority level, verification status), and any unverified citation must be explicitly labelled as `citation unverified`.
 
 ## 7 Implementation
 
@@ -437,18 +412,7 @@ robust_under(Conclusion, [A|Rest]) :-
     activate(A).
 ```
 
-### 7.4 Use Case Overlay - Mathematics (Lean 4 Bridge)
-
-When the mathematics overlay is active and a formal theorem `theorem(Statement)` is derived, EVO applies the following domain policy:
-
-1. Constructs a Lean 4 file beginning with `import Mathlib` (the **single mandatory top-level import**; specific submodule imports such as `import Mathlib.Data.Int.Basic` are forbidden because submodule paths change between Mathlib releases and cause "file not found" errors).
-2. Translates the statement into Lean 4 syntax. Prolog may suggest candidate lemma names via `mathlib_search` or confirm their existence via `mathlib_check`.
-3. Calls `lean4_exec`; if compilation fails, the theorem is **not considered proven**.
-4. Reports the Lean 4 verification result alongside the Prolog derivation.
-
-Any name returned by `mathlib_search` must be cross-verified with `mathlib_check` or `#check` inside `lean4_exec` before use, because `mathlib_search` returns mixed Lean 3 and Lean 4 results - Lean 3 names are invalid in Lean 4/Mathlib4.
-
-### 7.5 Prolog Code Hygiene
+### 7.4 Prolog Code Hygiene
 
 Every Prolog program must load in the SWI-Prolog sandbox without errors, warnings, or timeouts. Mandatory hygiene rules:
 
@@ -477,44 +441,6 @@ main :-
     write('Done.'), nl.
 ```
 
-### 7.6 Use Case Overlay - Mathematics (LaTeX Output Requirements)
-
-When the mathematics overlay is active, mathematical notation in responses must conform to strict LaTeX delimiter rules to prevent frontend rendering failures:
-
-- Every LaTeX command must be wrapped in `$...$` (inline) or `$$...$$` (display); bare commands without delimiters are forbidden.
-- Complete expressions must reside inside a **single** delimiter pair; splitting one expression across multiple `$` pairs is forbidden.
-- Nested delimiters are forbidden.
-- Currency dollars inside math must be escaped: `\$100`.
-- Line breaks inside `aligned` or `cases` environments require `\\` (double backslash), not a single backslash.
-- `\begin{cases}` expressions must reside entirely in one `$$` block.
-
-### 7.7 Use Case Overlay - Legal Support
-
-The deployed system includes a dedicated `legal-support` assistant mode selected at login time. This overlay changes retrieval policy and response posture without changing the Prolog-first reasoning core.
-
-**Operational behaviour:**
-- Prefer legal corpus retrieval (`legal_retrieve`) before broad web tools.
-- If the corpus lacks relevant authority, trigger conditional authoritative ingestion (`legal_ingest_authoritative`) and retry retrieval.
-- Treat legal materials as typed documents (for example, legislation vs judgment) and expose case-law metadata (court, neutral citation, decision date, precedent tier) for filtering and ranking.
-- Preserve explicit status outcomes (SOLVED, MAPPED, INCOMPLETE) and explicit uncertainty labels for missing or unverified authority.
-
-**Scope note:** this mode is designed for legal support analysis for human review, not autonomous legal advice.
-
-### 7.8 Additional Potential Use-Case Overlays
-
-Beyond mathematics and legal support, the same EVO core can be applied to other high-assurance domains by attaching domain-specific policies, connectors, and validation criteria:
-
-- Clinical decision support (evidence tracing, contraindication checks, uncertainty flags)
-- Financial risk/compliance analysis (policy-rule derivations, audit-ready explanations)
-- Cybersecurity triage (alert correlation with explicit assumptions and consistency checks)
-- Insurance claims adjudication support (rule-based coverage reasoning + evidence mapping)
-- Procurement and contract compliance (obligation extraction + clause-to-conclusion traceability)
-- Safety engineering/FMEA support (failure mode reasoning with assumption-dependence testing)
-- Scientific protocol validation (method constraints, reproducibility checks, formalized gaps)
-- Public-sector policy analysis (regulation-to-outcome derivations with transparent assumptions)
-- Fraud/scam risk screening (indicator rules, confidence tiers, explicit missing evidence)
-- Regulated QA for engineering changes (requirements traceability, contradiction detection, sign-off artifacts)
-
 ## 8 Evaluation
 
 ### 8.1 Qualitative Analysis
@@ -526,7 +452,6 @@ We compare EVO against two axes: **pure LLM reasoning** and **LLM-first hybrids*
 | Logical consistency guarantee | ✗ No | (!) Limited (depends on LLM) | ✓ Yes (via `inconsistent` check) |
 | Proof traces | ✗ No | (!) Partial (trajectories for training) | ✓ Yes (explicit `prove/2` trees) |
 | Assumption tracking | ✗ No | ✗ No | ✓ Yes (first-class, swappable) |
-| Formal math verification | ✗ No | ✗ No | ✓ Yes (via mathematics overlay, e.g., Lean 4) |
 | Fact-acquisition separation | ✗ No | (!) Mixed (LLM still does reasoning) | ✓ Strict (tools only supply facts) |
 | Uniqueness claims require proof | ✗ No | ✗ No | ✓ Yes (exhaustive search or completeness proof) |
 | Pre-response audit gate | ✗ No | ✗ No | ✓ Yes (12-item checklist, A1–A12) |
@@ -587,7 +512,6 @@ The difference is subtle but critical: in EVO, the **reasoning is done entirely 
 - **Performance** - The mandatory nine-step workflow, twelve-item audit, and per-conclusion assumption-dependence testing add overhead; real-time responses may be slower than pure-LLM systems.
 - **Tool-output parsing** - Converting arbitrary tool outputs to Prolog facts is non-trivial and may introduce errors, especially for richly structured data (graphs, images, LaTeX proofs).
 - **Assumption explosion** - Complex tasks may require many assumptions, making dependence testing combinatorially heavy (exponential in the number of assumptions in the worst case).
-- **Lean 4 bridge latency** — Formal verification via `lean4_exec` adds significant latency (120 s sandbox timeout); tasks requiring many Lean 4 calls are practically constrained.
 - **Capability-class ceiling** — The five-call tool limit per reasoning cycle means deeply nested fact-acquisition chains may terminate with `INCOMPLETE` rather than a complete derivation.
 
 ## 9 Discussion
@@ -610,14 +534,13 @@ This inversion ensures that the system's outputs are always justified by a symbo
 - **Assumption mining** - Automatically identifying implicit assumptions in user queries and making them explicit.
 - **Scalable consistency checking** - Efficient methods for detecting inconsistencies in large KBs.
 - **Interactive assumption exploration** - Allowing users to toggle assumptions and see how conclusions change in real time.
-- **Integration with broader formal methods** - Extending the mathematics-overlay verifier path beyond Lean 4 to other formal verification tools (Isabelle, Coq) for domain-specific deployments.
 - **Automated audit repair** - When STEP 8 audit fails, automatically identifying which prior step to re-run and which artifact to regenerate, rather than halting entirely.
 - **Proof-trace compression** — Compact serialisation of `prove/2` trees for large KBs to reduce context overhead in long reasoning chains.
 - **Progressive tool-call budget** - Dynamic adjustment of the five-call limit based on problem complexity rather than a fixed ceiling.
 
 ## 10 Conclusion
 
-EVO presents a **Prolog-first** autonomous reasoning system that places Prolog at the center of all inference. By requiring derivation with proof traces, explicit assumption tracking, and consistency verification, EVO provides logical guarantees absent in both pure-LLM and existing LLM-first hybrid systems. Domain-specific requirements (for example, mathematics verification in Lean 4 or legal authority retrieval policy) are introduced as overlays rather than core semantics.
+EVO presents a **Prolog-first** autonomous reasoning system that places Prolog at the center of all inference. By requiring derivation with proof traces, explicit assumption tracking, and consistency verification, EVO provides logical guarantees absent in both pure-LLM and existing LLM-first hybrid systems.
 
 The system's strict separation between symbolic reasoning and fact acquisition ensures that tools (including LLMs) are used only as knowledge oracles, never as reasoning engines. This architecture inverts the prevailing neuro-symbolic design and offers a path toward verifiable, transparent, and assumption-aware AI reasoning.
 
@@ -640,8 +563,6 @@ While EVO imposes modeling overhead and performance costs, it delivers in return
 [7] The Coq Development Team, *The Coq Proof Assistant Reference Manual*, INRIA, 2023.
 
 [8] T. Nipkow, L. C. Paulson, and M. Wenzel, *Isabelle/HOL: A Proof Assistant for Higher-Order Logic*, Springer, 2002.
-
-[9] L. de Moura and S. Ullrich, "The Lean 4 theorem prover and programming language," *CADE*, 2021.
 
 [10] L. Sterling and E. Shapiro, *The Art of Prolog*, MIT Press, 1994.
 
