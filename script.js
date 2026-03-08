@@ -1,22 +1,37 @@
-async function loadPaperText() {
-  const paperTextEl = document.getElementById("paper-text");
-  const paperMetaEl = document.getElementById("paper-meta");
-  if (!paperTextEl || !paperMetaEl) return;
+marked.setOptions({
+  gfm: true,
+  breaks: false,
+  mangle: false,
+  headerIds: true,
+});
+
+async function loadPaper() {
+  const target = document.getElementById("paper-content");
+  if (!target) return;
 
   try {
-    const response = await fetch("evo-paper-full.txt", { cache: "no-cache" });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
+    const res = await fetch("paper.md", { cache: "no-cache" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    const text = await response.text();
-    paperTextEl.textContent = text;
-    const lines = text.split(/\r?\n/).length;
-    paperMetaEl.textContent = `${lines.toLocaleString()} lines`;
-  } catch (error) {
-    paperTextEl.textContent = "Unable to load paper text.";
-    paperMetaEl.textContent = "Load failed";
+    const md = await res.text();
+    target.innerHTML = marked.parse(md);
+
+    target.querySelectorAll("pre code").forEach((el) => {
+      hljs.highlightElement(el);
+    });
+
+    renderMathInElement(target, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false },
+        { left: "\\(", right: "\\)", display: false },
+        { left: "\\[", right: "\\]", display: true },
+      ],
+      throwOnError: false,
+    });
+  } catch (err) {
+    target.innerHTML = `<p class="loading">Failed to load paper: ${String(err)}</p>`;
   }
 }
 
-loadPaperText();
+loadPaper();
