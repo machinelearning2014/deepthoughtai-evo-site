@@ -1,3 +1,5 @@
+# EVO: A Prolog-First Autonomous Reasoning System with Explicit Assumptions and Consistency Verification
+
 ## Abstract
 
 We present **EVO**, an autonomous reasoning system whose core tenet is *Prolog-first*: all reasoning begins with formal modeling in Prolog, and every conclusion must be derived via Prolog inference with explicit proof traces. EVO enforces a strict workflow that includes consistency verification, assumption-dependence testing, and a clear separation between symbolic reasoning and fact-acquisition tools (including large language models). The system treats assumptions as first-class objects that can be enabled, disabled, or swapped. We describe the formal model, the mandatory reasoning steps, the tool-integration protocol, and the philosophical underpinnings that distinguish EVO from existing neuro-symbolic or LLM-centric hybrids. We also describe domain overlays as use cases (including mathematics and Australian legal support) that reuse the same core reasoning engine while adding domain-specific policies and connectors. EVO provides guarantees of logical consistency and traceability that are absent in purely neural approaches while remaining flexible enough to incorporate external knowledge when Prolog's own deduction reaches its limits.
@@ -45,7 +47,7 @@ These principles yield a system that provides **logical consistency guarantees**
 
 ### 3.1 Core Principles
 
-EVO's architecture is defined by the seven principles listed in §1. The most distinctive is **Prolog-first**: the system never answers from intuition, training data, or an LLM's internal "reasoning." Instead, it must always:
+EVO's architecture is defined by the seven principles listed in Section 1. The most distinctive is **Prolog-first**: the system never answers from intuition, training data, or an LLM's internal "reasoning." Instead, it must always:
 
 - Model the task in Prolog (facts, rules, assumptions, constraints).
 - Attempt to derive `conclusion(Answer)` via `prove(conclusion(Answer), Proof)`.
@@ -63,7 +65,7 @@ The system consists of four layers:
 - **Optional Domain Verifier Bridge** -- When a domain overlay requires formal verification (for example, mathematics), routes claims to an external verifier (for example, Lean 4); Prolog may suggest proof strategies but does not execute external proofs itself.
 - **User Interface** -- Presents derived conclusions, proof summaries, assumption dependencies, and any remaining limits.
 
-All layers are orchestrated by the mandatory reasoning workflow (§5).
+All layers are orchestrated by the mandatory reasoning workflow (Section 5).
 
 ## 4 Formal Model
 
@@ -100,7 +102,7 @@ EVO enforces a **mandatory nine-step workflow** (Steps 0--8) for every task, pre
 
 ### 5.0 Hard Rules and Halt Conditions
 
-Eight rules apply to every step without exception:
+Nine rules apply to every step without exception:
 
 - **R1. No silent skipping.** Every step must be executed or explicitly documented as skipped with a written justification.
 - **R2. Steps produce named artifacts.** Steps are gated: a step's artifact is required input for the next. Attempting Step $N$ without Step $N\!-\!1$'s artifact is a halt condition.
@@ -240,21 +242,42 @@ For each conclusion $C$ from Step 2:
 
 Any ASSUMPTION-DEPENDENT conclusion omitted from this test must not appear in the final response --- HALT(H5). Paradoxes are ASSUMPTION-DEPENDENT tensions, not logical inconsistencies.
 
-### 5.7 Step 5 -- Tool Usage (Fact Acquisition)
+### 5.7 Step 4B -- Failed-Model Diagnosis
 
-**Input required:** `need_capability/2` from Step 2, **or** a formal proof task.
+**Input required:** Step 4 artifact, **or** Check 6 failure from Step 6.
+**Output artifact:** Minimal repair candidate set for unmet requirements.
+
+For each unfulfilled `spec_requirement/2`, identify which current assumption, model rule, or interpretation is blocking the required derivation. Emit only the smallest needed repair facts:
+
+- `assumption_candidate_to_drop(Assumption).`
+- `assumption_candidate_to_weaken(Assumption, WeakerForm).`
+- `model_gap(Requirement, MissingModelPiece).`
+
+Rules:
+
+- Step 4B is for failed or misdirected models, not for restating conclusions.
+- If Step 4B emits no repair candidates and no `model_gap/2`, semantic repair is not justified; proceed to terminal MAPPED/INCOMPLETE handling in Step 6.
+- Any repair chosen from Step 4B must be applied one at a time.
+
+### 5.8 Step 5 -- Tool Usage (Fact Acquisition)
+
+**Input required:** `need_capability/2` from Step 2, **or** a formal proof task, **or** repair-directed evidence needs from Step 4B.
 **Output artifact:** Tool output converted to Prolog facts and validation facts + re-run of Steps 2--3 with enriched KB.
 
 A tool **must not** be invoked unless either:
+
 - Prolog emitted `need_capability(Capability, Purpose)`, or
-- the task is a formal mathematical proof requiring `lean4_exec`.
+- the task is a formal mathematical proof requiring `lean4_exec`, or
+- Step 4B produced a repair-directed evidence need.
+
 Invoking a tool without these preconditions triggers HALT(H6).
 
 **Tool call protocol:**
+
 - Quote the `need_capability/2` fact that authorises this call.
 - Execute the tool.
 - Convert every relevant result into Prolog facts: `acquired_fact(source(Tool), content(Result)).`
-- Convert to validation facts: `tool_result_fulfills(ResultID, Requirement, Status)` where \texttt{Status in {fully, partially, not}}.
+- Convert to validation facts: `tool_result_fulfills(ResultID, Requirement, Status)` where `Status in {fully, partially, not}`.
 - Assert new facts into KB.
 - Re-run Steps 2 and 3 with enriched KB.
 
@@ -262,9 +285,9 @@ Tool output may not introduce new `active_assumption/1` predicates, replace Prol
 
 **Formal mathematics exception (non-negotiable):** any theorem, lemma, or formal mathematical statement must use `lean4_exec` for final formal verification. Prolog may plan proof structure, but no other tool may substitute for Lean 4 on formal proofs.
 
-A maximum of five sequential tool calls is allowed per reasoning cycle. Exceeding this limit without resolution triggers `HALT --- INCOMPLETE(tool_loop: <description>)`.
+**Current implementation note:** the prompt still imposes a five-call ceiling per reasoning cycle, but this is presently a prompt-level orchestration rule rather than a controller-enforced hard stop.
 
-### 5.8 Step 6 -- Solved / Mapped / Incomplete Gate
+### 5.9 Step 6 -- Solved / Candidate / Mapped / Incomplete Gate
 
 **Input required:** All prior step artifacts.
 **Output artifact:** Mandatory status declaration with semantic validation.
@@ -279,14 +302,34 @@ Evaluate in order:
 | 4 | Step 4 classified every conclusion |
 | 5 | Every tool call preceded by `need_capability/2` |
 | 6 | Semantic validation passes: conclusions satisfy `problem_spec` requirements and method constraints |
+| 7 | If formal proof requested, at least one `lean4_exec` run compiled cleanly, with no `sorry` and no unsolved goals |
 
 All checks pass $\rightarrow$ `[STATUS: SOLVED]`.
 Check 2 fails with non-empty KB and no capability gap $\rightarrow$ `[STATUS: MAPPED --- reason: X]`.
 Check 6 fails with a derivable answer candidate but open proof obligations (for example: uniqueness unproven, simplifying assumptions still required, or early termination without completeness proof) $\rightarrow$ `[STATUS: CANDIDATE --- reason: X]`.
-Check 6 fails (semantic mismatch with `problem_spec`) and no justified repair path exists $\rightarrow$ `[STATUS: MAPPED --- reason: solution does not fully match problem_spec]` and HALT(H8).
+
+**Decision rule:**
+
+- Use `CANDIDATE` if a derivable answer candidate exists and the remaining gap is proof-strength.
+- Use `INCOMPLETE` if the workflow is blocked, a required gate failed, or required information/evidence is still missing.
+
+Check 6 fails (semantic validation) does **not** automatically imply terminal MAPPED. First test whether a justified bounded repair path exists. A bounded semantic-repair loop is justified if any of the following hold:
+
+- Step 4 classified a relevant conclusion as ASSUMPTION-DEPENDENT or FRAGILE.
+- `refuted_assumption/2` exists.
+- `unsupported_model_rule/2` exists.
+- `repair_candidate/2` exists.
+- Step 4B emitted `assumption_candidate_to_drop/1`, `assumption_candidate_to_weaken/2`, or `model_gap/2`.
+- `repair_needed_from_evidence/1` exists.
+
+If repair is justified, select exactly one repair action, update the model, and then re-run Step 0 if the problem interpretation changed, otherwise re-run Steps 2, 3, 4, 4B, and 6. Continue only if the repair state is novel and produces progress. The current prompt bounds this repair loop to two semantic-repair cycles and forbids repeated repair states.
+
+If no justified repair path exists $\rightarrow$ `[STATUS: MAPPED --- reason: solution does not fully match problem_spec]` and HALT(H8).
+If repair budget is exhausted or repair state repeats $\rightarrow$ `[STATUS: MAPPED --- reason: semantic repair space exhausted]` and HALT(H10).
+Check 7 fails for a formal-proof task $\rightarrow$ `[STATUS: MAPPED --- reason: Lean formal verification not successfully compiled]` and HALT(H9).
 Any other check fails or halt triggered $\rightarrow$ `[STATUS: INCOMPLETE --- reason: X]`.
 
-### 5.9 Step 7 -- Response Construction
+### 5.10 Step 7 -- Response Construction
 
 **Input required:** Step 6 artifact + all prior artifacts.
 **Output artifact:** Structured final response with all nine required sections.
@@ -303,9 +346,16 @@ Required sections (omitting any section is a HALT(H7) condition):
 - **Validation Report** --- For each requirement: fulfillment status (fully/partially/not), evidence, and gap analysis.
 - **Remaining Limits** --- Missing facts, unresolved assumptions, or capability gaps; if none: "None."
 
-Forbidden in response: intuition, narrative, or speculation not in step artifacts; conclusions without proof traces; tool output cited directly without Prolog re-derivation; omission of any section above.
+The live prompt adds a presentation contract on top of this structure:
 
-### 5.10 Step 8 -- Pre-Response Audit
+- Translate all Prolog reasoning into plain English.
+- Do not display raw predicates such as `conclusion/1`, `prove/2`, or `inconsistent/0` in the user-facing response.
+- Do not show raw Prolog queries or raw tool payloads directly.
+- If web search, web browse, or external-document retrieval was used, include a **Sources:** section listing all referenced URLs.
+
+Forbidden in response: intuition, narrative, or speculation not in step artifacts; conclusions without proof traces; tool output cited directly without Prolog re-derivation; omission of any section above; raw Prolog exposition in place of plain-English explanation.
+
+### 5.11 Step 8 -- Pre-Response Audit
 
 **Input required:** Draft response from Step 7.
 **Output artifact:** Audit pass/fail log; any FAIL triggers HALT(H7).
@@ -333,6 +383,7 @@ Before sending any response, verify all items:
 | A17 | If status is CANDIDATE, reason explains which proof obligations remain unmet |
 | A18 | If status is MAPPED, reason explains unmet requirements |
 | A19 | Direct Answer is natural language and grounded in derived conclusions (or explicit missing-info statement) |
+| A20 | If web/document retrieval tools were used, a Sources section lists the referenced URLs/documents |
 
 All pass $\rightarrow$ send response. Any fail $\rightarrow$ HALT(H7), fix the gap, re-run from the failed step, and re-run audit.
 
@@ -377,14 +428,28 @@ Tool outputs are converted into Prolog facts via a conservative mapping:
 
 These facts are asserted into the KB, and derivation is re-attempted from Step 2. Tool outputs may **not** introduce new `active_assumption/1` predicates; if a tool result requires an inferential bridge it must be explicitly modelled as an assumption with justification.
 
-### 6.4 Use Case Overlay Example -- Legal-Support Retrieval (Australia)
+### 6.4 Runtime Budget and Exposure Notes
 
-In legal-support mode, EVO applies an additional source-discipline layer:
+The current codebase tracks per-turn tool calls in both web and CLI flows, but the **five-call ceiling is presently a prompt-level orchestration rule**, not a controller-enforced hard runtime stop. In other words, the model is instructed to stop after five sequential tool calls in a reasoning cycle, but the controller does not currently reject a sixth call by itself. The implementation therefore supports the rule normatively, not as a complete runtime guarantee.
 
-- Run `legal_retrieve` first against the indexed legal corpus.
-- If retrieval is empty or insufficient, run `legal_ingest_authoritative` with the current legal query (and jurisdiction/type filters when available), then re-run `legal_retrieve`.
-- Use `legal_ingest` for explicit single-document ingestion when a specific source URL or text is provided.
-- Use `legal_corpus_stats` to verify corpus coverage and ingestion progress.
+Similarly, the live tool protocol must distinguish three layers:
+
+1. **Prompt-level policy** --- Prolog-first, no redundant recomputation, bounded tool use.
+2. **LLM-exposed surface** --- the nineteen tools returned by `getTools()`.
+3. **Executor-only surface** --- additional tools implemented in `ToolExecutor` but not currently exposed to the model.
+
+Any document that omits these distinctions overstates what the live system can actually invoke autonomously.
+
+### 6.5 Use Case Overlay Example -- Legal-Support Retrieval (Australia)
+
+In legal-support mode, EVO conceptually applies an additional source-discipline layer:
+
+1. Run `legal_retrieve` first against the indexed legal corpus.
+2. If retrieval is empty or insufficient, run `legal_ingest_authoritative` with the current legal query (and jurisdiction/type filters when available), then re-run `legal_retrieve`.
+3. Use `legal_ingest` for explicit single-document ingestion when a specific source URL or text is provided.
+4. Use `legal_corpus_stats` to verify corpus coverage and ingestion progress.
+
+However, in the current codebase these legal tools are implemented in the executor but **not presently exposed through `getTools()`**. The overlay therefore describes available backend capability rather than the current default LLM-callable surface.
 
 Authoritative Australian sources prioritised by the implementation include:
 `legislation.gov.au`, state/territory legislation registries, `hcourt.gov.au`, `fedcourt.gov.au`, `caselaw.nsw.gov.au`, and `austlii.edu.au` (primarily for discovery/cross-reference).
@@ -544,15 +609,15 @@ We compare EVO against two axes: **pure LLM reasoning** and **LLM-first hybrids*
 
 | **Criterion** | **Pure LLM** | **LLM-First Hybrid** | **EVO (Prolog-First)** |
 | --- | --- | --- | --- |
-| Logical consistency guarantee | ? No | (!) Limited (depends on LLM) | ? Yes (via inconsistent check) |
-| Proof traces | ? No | (!) Partial (trajectories for training) | ? Yes (explicit prove/2 trees) |
-| Assumption tracking | ? No | ? No | ? Yes (first-class, swappable) |
-| Formal math verification | ? No | ? No | ? Yes (via mathematics overlay, e.g., Lean 4) |
-| Fact-acquisition separation | ? No | (!) Mixed (LLM still does reasoning) | ? Strict (tools only supply facts) |
-| Uniqueness claims require proof | ? No | ? No | ? Yes (exhaustive search or completeness proof) |
-| Pre-response audit gate | ? No | ? No | ? Yes (20-item checklist, A1--A20) |
-| Workflow hard rules + halt conditions | ? No | ? No | ? Yes (R1--R9, H1--H10) |
-| Four-way status (SOLVED / CANDIDATE / MAPPED / INCOMPLETE) | ? No | ? No | ? Yes |
+| Logical consistency guarantee | No | Limited (depends on LLM) | Yes (via inconsistent check) |
+| Proof traces | No | Partial (trajectories for training) | Yes (explicit prove/2 trees) |
+| Assumption tracking | No | No | Yes (first-class, swappable) |
+| Formal math verification | No | No | Yes (via mathematics overlay, e.g., Lean 4) |
+| Fact-acquisition separation | No | Mixed (LLM still does reasoning) | Strict (tools only supply facts) |
+| Uniqueness claims require proof | No | No | Yes (exhaustive search or completeness proof) |
+| Pre-response audit gate | No | No | Yes (20-item checklist, A1--A20) |
+| Workflow hard rules + halt conditions | No | No | Yes (R1--R9, H1--H10) |
+| Four-way status (SOLVED / CANDIDATE / MAPPED / INCOMPLETE) | No | No | Yes |
 
 ### 8.2 Example: Arithmetic Word Problem
 
