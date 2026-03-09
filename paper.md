@@ -100,7 +100,7 @@ EVO enforces a **mandatory nine-step workflow** (Steps 0--8) for every task, pre
 
 ### 5.0 Hard Rules and Halt Conditions
 
-Nine rules apply to every step without exception:
+Eight rules apply to every step without exception:
 
 - **R1. No silent skipping.** Every step must be executed or explicitly documented as skipped with a written justification.
 - **R2. Steps produce named artifacts.** Steps are gated: a step's artifact is required input for the next. Attempting Step $N$ without Step $N\!-\!1$'s artifact is a halt condition.
@@ -494,7 +494,7 @@ When the mathematics overlay is active, mathematical notation in responses must 
 - Complete expressions must reside inside a **single** delimiter pair; splitting one expression across multiple `$` pairs is forbidden.
 - Nested delimiters are forbidden.
 - Currency dollars inside math must be escaped: \texttt{$100}.
-- Line breaks inside `aligned` or `cases` environments require \texttt{} (double backslash), not a single backslash.
+- Line breaks inside `aligned` or `cases` environments require \texttt{\\} (double backslash), not a single backslash.
 - \texttt{begin{cases}} expressions must reside entirely in one `$$` block.
 
 ### 7.8 Use Case Overlay -- Legal Support

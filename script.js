@@ -55,6 +55,51 @@ function convertLatexTabularToMarkdown(markdown) {
   });
 }
 
+function convertLatexTextttToMarkdown(markdown) {
+  const startToken = "\\texttt{";
+  let out = "";
+
+  for (let i = 0; i < markdown.length; i += 1) {
+    if (!markdown.startsWith(startToken, i)) {
+      out += markdown[i];
+      continue;
+    }
+
+    let j = i + startToken.length;
+    let depth = 1;
+    let content = "";
+
+    while (j < markdown.length && depth > 0) {
+      const ch = markdown[j];
+      if (ch === "{") {
+        depth += 1;
+        content += ch;
+      } else if (ch === "}") {
+        depth -= 1;
+        if (depth > 0) content += ch;
+      } else {
+        content += ch;
+      }
+      j += 1;
+    }
+
+    if (depth !== 0) {
+      out += markdown[i];
+      continue;
+    }
+
+    const normalized = content
+      .replace(/\\textasciitilde\{\}/g, "~")
+      .replace(/\\\{/g, "{")
+      .replace(/\\\}/g, "}");
+
+    out += `\`${normalized}\``;
+    i = j - 1;
+  }
+
+  return out;
+}
+
 function stripLeadingTitle(markdown) {
   return markdown.replace(/^\s*# .+\r?\n+/, "");
 }
@@ -122,7 +167,9 @@ async function loadPapers() {
         if (!res.ok) throw new Error(`${article.file}: HTTP ${res.status}`);
 
         const md = await res.text();
-        const normalized = stripLeadingTitle(convertLatexTabularToMarkdown(md));
+        const normalized = stripLeadingTitle(
+          convertLatexTextttToMarkdown(convertLatexTabularToMarkdown(md))
+        );
         return {
           ...article,
           html: marked.parse(normalized),
