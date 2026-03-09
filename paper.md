@@ -26,7 +26,7 @@ These principles yield a system that provides **logical consistency guarantees**
 - A **formal model** of a Prolog-first reasoning system with first-class assumptions and consistency constraints.
 - A **mandatory nine-step reasoning workflow** governed by nine hard rules, ten halt conditions, and a mandatory pre-response audit that enforces derivation, consistency checking, assumption-dependence testing, semantic validation, and uniqueness proofs.
 - A **complexity triage gate** with explicit TRIAGE ARTIFACTs that determines whether problem-analysis pre-processing is required before formalisation.
-- A **tool-integration protocol** with ten capability classes, output validation signals, and a five-call limit that strictly separates symbolic reasoning from fact acquisition.
+- A **tool-integration protocol** that distinguishes prompt-level policy, the live LLM-exposed tool surface, and executor-only latent capability, while preserving the separation between symbolic reasoning and fact acquisition.
 - A **use-case overlay pattern** for attaching domain constraints/connectors (for example, mathematics and legal-support) on top of the same core workflow.
 - An **implementation blueprint** covering the Prolog meta-interpreter, tool interfaces, and Prolog code hygiene rules, plus optional domain overlays.
 - A **philosophical and practical comparison** with existing neuro-symbolic approaches, showing that EVO's architecture inverts the usual LLM-centric design.
@@ -137,6 +137,18 @@ A **TRIAGE ARTIFACT** must be produced --- one of:
 > \texttt{[TRIAGE: NOT COMPLEX --- reason: <one sentence>]}
 
 This artifact must appear before any step begins. If COMPLEX, proceed to Step 0. If NOT COMPLEX, skip Step 0 (with documented justification) and proceed to Step 1.
+
+### 5.1A Compact Analysis Style
+
+The live prompt now imposes a compact-analysis discipline before derivation begins:
+
+- Do not force symbolic-logic narration for every task.
+- Extract only the minimum required structure: given facts, unknowns, constraints, ambiguities, and required assumptions.
+- Prefer executable logic or symbolic derivation when the task is naturally formalizable.
+- Do not simulate rigor with artificial quantifiers or pseudo-symbolic restatement when the task is not naturally formalizable.
+- Final explanations should be brief and outcome-focused: answer, assumptions, validation status, and unresolved gap.
+
+This is a prompting constraint rather than a Prolog theorem, but it is part of the active orchestration contract because it changes how the model is expected to formulate analysis and responses.
 
 ### 5.2 Step 0 -- Problem Analysis (Complex Problems Only)
 
