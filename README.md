@@ -1,1 +1,2 @@
-# DeepThought AIModern GitHub Pages landing site for the `machinelearning2014` account.- Live app link: https://deepthoughtai-evo-frontend.hf.space
+# DeepThought
+Site at https://machinelearning2014.github.io/
