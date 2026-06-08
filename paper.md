@@ -104,6 +104,25 @@ EVO coordinates a registry of specialized tools, each with defined capabilities:
 | networkx_exec | Graph analysis | COMPUTE, PROVE |
 | batch_mathlib_check | Lemma name verification | PROVE |
 | mathlib_search | Lemma discovery | PROVE |
+| code_scratch_pad | Persistent CODE evidence repo | CODE |
+| prove_scratch_pad | Persistent Lean proof repo | PROVE |
+| reason_scratch_pad | Persistent Prolog KB repo | REASON |
+
+### 2.5 The Scratch Pad System
+
+EVO maintains a **persistent scratch pad repository** for each reasoning tier that produces durable artifacts. These repositories serve as auditable evidence stores — every file change, test result, and CI run is a commit with a SHA, not ephemeral tool output.
+
+| Tier | CI Verification | Key Capability |
+|------|-----------------|----------------|
+| CODE | Language auto-detect (`ci.yml`) | Inline (API + CI) and Codespace modes |
+| PROVE | `lake build` in Lean 4 container | Persistent proof library; theorems importable by future proofs |
+| REASON | `swipl` KB load check | Cross-turn KB persistence; reusable reasoning modules |
+
+**CODE scratch pad** operates in two modes chosen by the agent during the K1 (inspect) step. **Inline mode** writes files via the GitHub API, dispatches CI via `workflow_dispatch`, and polls for results — suited for single-file fixes. **Codespace mode** spins up a GitHub Codespace via `gh codespace create`, giving the agent a real terminal for iterative debugging, multi-file refactors, and test-suite-driven development. After verification the agent creates a PR and tears down the Codespace.
+
+**PROVE scratch pad** stores `.lean` proof files in `Proofs/<theorem>/` directories. The `lake build` CI verifies that proofs compile against Mathlib. Over time, this accumulates a growing library of verified theorems — turning one-shot verification into a reusable proof asset.
+
+**REASON scratch pad** stores Prolog knowledge bases in `kb/<topic>/` directories. The `swipl` CI loads every `.pl` file and verifies the KB has no syntax errors, missing predicates, or initialization failures. Multi-turn REASON tasks accumulate premises, derived conclusions, and assumption-dependence classifications across sessions instead of rebuilding from scratch each turn.
 
 Tool selection follows a **CAPABILITY PRIORITY RULE**: internal_knowledge is always tried first before escalating to external tools. This prevents unnecessary tool invocations when the system's training knowledge suffices.
 
@@ -151,6 +170,8 @@ This is EVO's most distinctive workflow, designed for tasks that require multi-s
 
 - **R6 — Answer:** Natural language response with status, conclusions, assumptions, dependence classification, and limitations.
 
+**Scratch pad integration:** The REASON scratch pad (`reason_scratch_pad` tool) persists the Prolog KB to `kb/<topic>/` in a dedicated repository. A `swipl` CI check verifies the KB loads without error. Multi-turn REASON tasks accumulate premises, derivations, and dependence classifications across sessions rather than rebuilding from scratch.
+
 **Halting conditions:**
 - H1: `need_clarification/1` derivable — ask, wait.
 - H2: STEP R1 KB empty or missing harness predicate.
@@ -168,6 +189,8 @@ This is EVO's most distinctive workflow, designed for tasks that require multi-s
 - **P3 — Build and Verify:** Lean 4 proof construction. PHASE A: Write proof sketch, list lemmas, batch-verify with batch_mathlib_check. PHASE B: Iterate lean4_probe (sorries allowed) $\to$ replace sorries $\to$ lean4_exec (no sorries). Lean is the sole verification authority.
 - **P4 — Validate:** lean4_exit_code(0) AND status:lean4_verified.
 - **P5 — Answer:** Formal proof code, proof structure, verification output.
+
+**Scratch pad integration:** The PROVE scratch pad (`prove_scratch_pad` tool) writes `.lean` proof files to `Proofs/<theorem>/` in a dedicated repository. A `lake build` CI workflow verifies the proof compiles against Mathlib. Verified theorems become permanent, importable proof assets — building a growing library over successive PROVE tasks.
 
 **Halting conditions:**
 - H6: Python exploration fails to establish pattern.
