@@ -9,7 +9,7 @@
 
 ## Abstract
 
-This paper presents *EVO* (Explicit-assumption Verification Orchestrator), an intelligent AI agent architecture designed for autonomous reasoning that is **evidence-grounded, assumption-explicit, and tier-appropriate**. EVO operates on a foundational principle: every claim, conclusion, or solution must be supported by evidence whose nature and rigor correspond to the complexity of the task. The architecture classifies tasks into five tiers — LITE, COMPUTE, CODE, REASON, and PROVE — each with its own primary evidence mechanism, workflow, and halting conditions. Central to the design is a **Prolog-first, derivation-based approach** for logical reasoning, where assumptions are treated as first-class objects that can be enabled, disabled, swapped, and tested for dependence. For formal mathematical verification, EVO integrates **Lean 4** as the sole proof authority, complemented by computational exploration in Python and symbolic computation in SymPy.
+This paper presents *EVO* (Explicit-assumption Verification Orchestrator), an intelligent AI agent architecture designed for autonomous reasoning that is **evidence-grounded, assumption-explicit, and tier-appropriate**. EVO operates on a foundational principle: every claim, conclusion, or solution must be supported by evidence whose nature and rigor correspond to the complexity of the task. The architecture classifies tasks into six tiers — LITE, COMPUTE, MATHS, CODE, REASON, and PROVE — each with its own primary evidence mechanism, workflow, and halting conditions. The REASON tier employs a **Prolog-first, derivation-based approach** for logical reasoning, where assumptions are treated as first-class objects that can be enabled, disabled, swapped, and tested for dependence — with stateful Prolog execution where the KB accumulates across calls within a turn. For mathematical derivation, the MATHS tier uses `maths_problem` as a stage controller with computational/symbolic evidence as primary verification. For formal mathematical verification, EVO integrates **Lean 4** as the sole proof authority, complemented by a specialist proof LLM (`deepseek_prover`, based on DeepSeek Prover V2) for theorem discovery and strategy guidance, computational exploration in Python, and iterative probe-based proof construction.
 
 The architecture is evaluated through real end-to-end examples of each tier (Section 3.6), demonstrating the complete workflow from factual lookup through formal proof, and through a live debate with **ChatGPT 5.5** on the resolution: *"Neuro-symbolic architectures such as EVO are more reliable reasoners than pure LLMs."* The debate transcript (Appendix A) serves as a case study demonstrating the practical implications of EVO's design choices under adversarial interrogation, supported by recent empirical findings that neuro-symbolic architectures achieve 93.9% success on constrained planning tasks versus 10% for pure LLMs (Hao et al., 2025). The LITE tier's mini-Prolog KB requirement resolves the assumption-transparency tension by making every inference bridge explicit, while remaining proportionate to the complexity of factual lookup tasks.
 
@@ -19,7 +19,7 @@ The architecture is evaluated through real end-to-end examples of each tier (Sec
 
 Large language models (LLMs) have demonstrated remarkable capabilities in generating fluent text, answering questions, and even performing multi-step reasoning. However, they suffer from well-documented failure modes: hallucination, hidden assumptions, inconsistent beliefs, and an inability to distinguish between memorized patterns and verified knowledge. These failures are not mere engineering challenges — they are architectural consequences of the stochastic, latent-knowledge paradigm that underlies all pure neural language models.
 
-Recent surveys confirm the persistence of these challenges. Colelough and Regli (2025) conducted a PRISMA-based systematic review of 167 neuro-symbolic AI papers and found that explainability (28% of papers) and meta-cognition (5%) remain the least-explored research areas — precisely the gaps that EVO's explicit assumption-tracking and proof-trace mechanisms are designed to address. Yang et al. (2025), in an IJCAI 2025 survey track paper, taxonomized neuro-symbolic approaches into three categories — Symbolic$\to$LLM, LLM$\to$Symbolic, and LLM+Symbolic — and identified reasoning improvement as the primary motivation across all paradigms.
+Recent surveys confirm the persistence of these challenges. Colelough and Regli (2025) conducted a PRISMA-based systematic review of 167 neuro-symbolic AI papers and found that explainability (28% of papers) and meta-cognition (5%) remain the least-explored research areas — precisely the gaps that EVO's explicit assumption-tracking and proof-trace mechanisms are designed to address. Yang et al. (2025), in an IJCAI 2025 survey track paper, taxonomized neuro-symbolic approaches into three categories — Symbolic→LLM, LLM→Symbolic, and LLM+Symbolic — and identified reasoning improvement as the primary motivation across all paradigms.
 
 EVO was designed to address these failure modes through a system of **structured epistemic accountability**. The guiding insight is that reasoning is not a monolithic capability but a spectrum of activities requiring different types and strengths of evidence. A factual lookup, a numerical computation, a philosophical argument, and a formal mathematical proof each demand fundamentally different verification mechanisms. Treating them all with the same machinery is the root cause of many AI reliability failures.
 
@@ -39,15 +39,16 @@ EVO is not a monolithic model but a **workflow orchestration system** that coord
 
 ### 2.1 The Tier Classification Layer (Triage)
 
-Every incoming request passes through a mandatory **triage** step that classifies it into exactly one of five tiers. This classification determines which workflow, which tools, and which evidence standards apply. The triage is performed before any tool invocation, based on an analysis of the request's structure and requirements. The five tiers are:
+Every incoming request passes through a mandatory **triage** step that classifies it into exactly one of six tiers. This classification determines which workflow, which tools, and which evidence standards apply. The triage is performed before any tool invocation, based on an analysis of the request's structure and requirements. The six tiers are:
 
 | Tier | Description | Primary Evidence | Typical Tools | Prolog Required? |
 |------|-------------|-----------------|---------------|------------------|
 | LITE | Fact lookup, definition, basic computation | Web search / internal knowledge + mini-Prolog KB | web_search, python_exec, prolog_exec | Yes (mini-KB) |
 | COMPUTE | Numerical/symbolic computation | Python/SymPy with verification | python_exec, sympy_exec | Yes (tracking only) |
-| CODE | Code/config/repository work | Source evidence + test/build output | github_public, web_search, python_exec, prolog_exec | Yes (code proxy) |
+| MATHS | Mathematical derivation/proof/classification | Computational/symbolic evidence | maths_problem, python_exec, sympy_exec | No |
+| CODE | Code/config/repository work | Source evidence + test/build output | code_scratch_pad, github, web_search, python_exec | Optional (complex tasks) |
 | REASON | Multi-step inference, philosophy, strategy | Prolog derivation with proof traces | prolog_exec, web_search, python_exec | Yes (full harness) |
-| PROVE | Formal mathematical proof | Lean 4 kernel verification | lean4_exec, python_exec, prolog_exec | Yes (proof planning) |
+| PROVE | Formal mathematical proof | Lean 4 kernel verification | lean4_exec, lean4_probe, python_exec, prolog_exec, deepseek_prover | Yes (proof planning) |
 
 This tiered approach is supported by the broader neuro-symbolic literature. Acharya and Song (2025) analyze neuro-symbolic AI through the lens of three trustworthiness dimensions — robustness, uncertainty quantification, and intervenability — finding that different trustworthiness properties require different architectural mechanisms. EVO's tiered design embodies this insight: each tier is optimized for the specific trustworthiness demands of its task class.
 
@@ -131,13 +132,13 @@ Tool selection follows a **CAPABILITY PRIORITY RULE**: internal_knowledge is alw
 
 ---
 
-## 3. The Five Workflows
+## 3. The Six Workflows
 
 Each tier implements a complete workflow with defined steps, halting conditions, and output formats.
 
 ### 3.1 LITE Workflow
 
-**Steps:** L1 (Tool Execution) $\to$ L2 (Mini-Prolog Validate) $\to$ L3 (Answer)
+**Steps:** L1 (Tool Execution) → L2 (Mini-Prolog Validate) → L3 (Answer)
 
 **Halting condition:** HALT if internal knowledge insufficient and no tool can fill the gap.
 
@@ -147,7 +148,7 @@ Each tier implements a complete workflow with defined steps, halting conditions,
 
 ### 3.2 COMPUTE Workflow
 
-**Steps:** C1 (Prolog Setup — problem spec) $\to$ C2 (Python Computation with verification) $\to$ C3 (Validate) $\to$ C4 (Answer)
+**Steps:** C1 (Prolog Setup — problem spec) → C2 (Python Computation with verification) → C3 (Validate) → C4 (Answer)
 
 **Halting conditions:** HALT if Python execution fails irrecoverably; HALT if results contradict.
 
@@ -157,7 +158,7 @@ Each tier implements a complete workflow with defined steps, halting conditions,
 
 ### 3.3 CODE Workflow
 
-**Steps:** K1 (Inspect) $\to$ K2 (Ledger) $\to$ K3 (Change) $\to$ K4 (Verify) $\to$ K5 (Answer)
+**Steps:** K1 (Inspect) → K2 (Ledger) → K3 (Change) → K4 (Verify) → K5 (Answer)
 
 **Halting condition:** HALT if relevant code/repo evidence cannot be inspected; HALT if verification cannot be run and no limitation is stated.
 
@@ -167,7 +168,27 @@ Each tier implements a complete workflow with defined steps, halting conditions,
 
 **Scratch pad integration:** The CODE scratch pad (`code_scratch_pad` tool) provides a persistent workspace for evidence. Inline mode writes files via the GitHub API with CI verification; Codespace mode spins up a GitHub Codespace for multi-file refactors with real terminal feedback.
 
-### 3.4 REASON Workflow
+### 3.4 MATHS Workflow
+
+The MATHS tier handles mathematical derivation, proof, classification, and computation tasks where computational or symbolic evidence is sufficient for verification — formal Lean proof is not required. MATHS uses `maths_problem` as its stage controller.
+
+**Steps:**
+
+- **M0 — START:** Call `maths_problem stage=start` with problem name, target, and complexity (computational / derivational / proof / formal).
+
+- **M1 — MODEL:** Call `maths_problem stage=model` to register definitions, variables, constraints, and edge conditions.
+
+- **M2 — EXPLORE:** Use `python_exec` and `sympy_exec` for computational exploration, then `maths_problem stage=explore` to record output.
+
+- **M3 — DERIVE:** Call `maths_problem stage=derive` to record claims, lemmas, case splits, and construction/exclusion evidence.
+
+- **M4 — VERIFY:** Optionally `verify_step`, then `verify_final` with final_claim, confirm=true, and evidence_mode (derivation/construction/exclusion/both/auto). For formal complexity, include successful lean4_exec evidence.
+
+- **M5 — ANSWER:** Synthesize with required sections: Direct Answer, Status, Problem Model, Mathematical Argument, Verification, Assumptions Used, Remaining Limits.
+
+**Evidence:** Computational/symbolic evidence is the primary verification authority. Web tools are blocked for MATHS tier — the model must construct derivations, not look them up.
+
+### 3.5 REASON Workflow
 
 This is EVO's most distinctive workflow, designed for tasks that require multi-step logical inference, assumption tracking, and consistency verification.
 
@@ -201,9 +222,11 @@ This is EVO's most distinctive workflow, designed for tasks that require multi-s
 **Steps:**
 - **P1 — Setup:** Prolog declares problem_spec, theorem_statement, proof_strategy. Verifies lemma names via batch_mathlib_check.
 - **P2 — Explore:** Python computes small cases, finds patterns, tests conjectures.
-- **P3 — Build and Verify:** Lean 4 proof construction. PHASE A: Write proof sketch, list lemmas, batch-verify with batch_mathlib_check. PHASE B: Iterate lean4_probe (sorries allowed) $\to$ replace sorries $\to$ lean4_exec (no sorries). Lean is the sole verification authority.
-- **P4 — Validate:** lean4_exit_code(0) AND status:lean4_verified.
-- **P5 — Answer:** Formal proof code, proof structure, verification output.
+- **P3 — Build and Verify:** Lean 4 proof construction in two phases. PHASE A (Plan): Write proof sketch, list all Mathlib lemmas, batch-verify with batch_mathlib_check ONCE. PHASE B (Iterate): lean4_probe (sorries allowed) → fix errors → replace sorries → prove_problem stage=prove_ready → lean4_exec (NO sorries) → prove_problem stage=verify_final with hash match. A specialist LLM, `deepseek_prover` (DeepSeek Prover V2), is available for proof strategy, theorem discovery, and lemma construction guidance when stuck — call it before retrying the same approach. Web tools are blocked: proofs must be constructed, not looked up.
+
+- **P4 — Validate:** prove_problem stage=verify_final confirms hash match, lean4_exit_code(0), no sorries/admit. If Lean verification fails, a MATHS fallback is available.
+
+- **P5 — Answer:** Direct Answer, Status, Problem Specification, Verification, Assumptions Used, Remaining Limits.
 
 **Scratch pad integration:** The PROVE scratch pad (`prove_scratch_pad` tool) writes `.lean` proof files to `Proofs/<theorem>/` in a dedicated repository. A `lake build` CI workflow verifies the proof compiles against Mathlib. Verified theorems become permanent, importable proof assets — building a growing library over successive PROVE tasks.
 
@@ -211,6 +234,7 @@ This is EVO's most distinctive workflow, designed for tasks that require multi-s
 - H6: Python exploration fails to establish pattern.
 - H7: Lean proof contains sorry after deadline.
 - H8: Batch mathlib_check reveals no valid lemma path.
+- deepseek_prover call recommended when: missing theorem, unclear strategy, repeated lean4_probe failures.
 
 EVO's PROVE workflow aligns with Hao et al.'s (2025) findings that LLMs combined with formal verification tools achieve dramatically higher success rates (93.9%) than pure LLMs (10.0%) on real-world constrained planning tasks — an 839% relative improvement. Their approach of using LLMs for plan generation followed by SAT-solver verification parallels EVO's approach of neural problem interpretation followed by symbolic derivation and Lean verification. Sheshanarayana and Magar (2025) further reinforce this paradigm with ProofSketch, a verification-guided reasoning framework that integrates symbolic computation with LLMs, using symbolic verification as a corrective feedback loop for neural-generated reasoning.
 
@@ -700,7 +724,7 @@ The judge noted that EVO "won comfortably" under the narrower, more precise inte
 
 ### 6.1 The Neuro-Symbolic Landscape
 
-EVO belongs to the **LLM$\to$Symbolic** category in Yang et al.'s (2025) taxonomy: the neural component (LLM) handles natural language understanding and problem framing, then translates the problem into a symbolic representation that the symbolic engine processes. This contrasts with the Symbolic$\to$LLM approach (where symbolic systems generate prompts for LLMs) and the LLM+Symbolic approach (tight coupling where both components interact throughout the reasoning process).
+EVO belongs to the **LLM→Symbolic** category in Yang et al.'s (2025) taxonomy: the neural component (LLM) handles natural language understanding and problem framing, then translates the problem into a symbolic representation that the symbolic engine processes. This contrasts with the Symbolic→LLM approach (where symbolic systems generate prompts for LLMs) and the LLM+Symbolic approach (tight coupling where both components interact throughout the reasoning process).
 
 The most distinctive feature of EVO compared to other neuro-symbolic architectures is its **explicit assumption-management system**. Colelough and Regli (2025) found that only 5% of neuro-symbolic papers address meta-cognition, and EVO's assumption-dependence testing is a concrete mechanism for implementing meta-cognitive awareness — moving beyond the "explainability" that 28% of surveyed papers address (which is typically post-hoc) to genuine self-awareness of inferential dependencies.
 
@@ -769,7 +793,7 @@ The debate case study provides qualitative evidence for EVO's architectural clai
 
 - Standardized reasoning benchmarks comparing EVO against pure LLMs (GPT-5.5, Claude 4) on mathematical reasoning (MATH, GSM8K, MiniF2F), planning (Blocks World, Logistics), and logical deduction.
 - Ablation studies measuring the contribution of each architectural component (assumption tracking, consistency checking, Lean verification) to overall reliability.
-- Human evaluation of output trustworthiness across the five tiers.
+- Human evaluation of output trustworthiness across the six tiers.
 
 Amjad et al. (2026) provide a comprehensive taxonomy of existing benchmarks and evaluation methodologies that will inform this empirical program.
 
