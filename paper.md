@@ -45,7 +45,7 @@ Every incoming request passes through a mandatory **triage** step that classifie
 |------|-------------|-----------------|---------------|------------------|
 | LITE | Fact lookup, definition, basic computation | Web search / internal knowledge + mini-Prolog KB | web_search, python_exec, prolog_exec | Yes (mini-KB) |
 | COMPUTE | Numerical/symbolic computation | Python/SymPy with verification | python_exec, sympy_exec | Yes (tracking only) |
-| MATHS | Mathematical derivation/proof/classification | Computational/symbolic evidence | maths_problem, python_exec, sympy_exec | No |
+| MATHS | Mathematical derivation/proof/classification | Computational/symbolic evidence | maths_problem, python_exec, sympy_exec, prolog_exec | Optional (assumption tracking) |
 | CODE | Code/config/repository work | Source evidence + test/build output | code_scratch_pad, github, web_search, python_exec | Optional (complex tasks) |
 | REASON | Multi-step inference, philosophy, strategy | Prolog derivation with proof traces | prolog_exec, web_search, python_exec | Yes (full harness) |
 | PROVE | Formal mathematical proof | Lean 4 kernel verification | lean4_exec, lean4_probe, python_exec, prolog_exec, deepseek_prover | Yes (proof planning) |
@@ -56,6 +56,7 @@ The triage decision is made according to the following decision procedure:
 
 - **LITE:** Single-step answer, no reasoning chain, no contestable assumptions, no formal proof required.
 - **COMPUTE:** Requires numerical/symbolic computation; result is a value, expression, or dataset; Python/SymPy can produce the answer.
+- **MATHS:** Requires mathematical derivation, construction, classification, counterexample, or existence/impossibility argument where computational/symbolic evidence is sufficient; formal Lean proof is not required.
 - **CODE:** Requires reading, writing, reviewing, debugging, testing, deploying, or securing code, config, repositories, dependencies, builds, or developer tooling; evidence comes from source files, repository metadata, and test/build output.
 - **REASON:** Multi-step logical inference, multiple perspectives, contestable assumptions, philosophical/ethical/strategic analysis.
 - **PROVE:** Requests formal mathematical proof; "prove that...," "show that...," classification/characterization problems; requires Lean 4 artifact.
