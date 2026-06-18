@@ -9,7 +9,7 @@
 
 ## Abstract
 
-This paper presents *EVO* (Explicit-assumption Verification Orchestrator), an intelligent AI agent architecture designed for autonomous reasoning that is **evidence-grounded, assumption-explicit, and tier-appropriate**. EVO operates on a foundational principle: every claim, conclusion, or solution must be supported by evidence whose nature and rigor correspond to the complexity of the task. The architecture classifies tasks into six tiers — LITE, COMPUTE, MATHS, CODE, REASON, and PROVE — each with its own primary evidence mechanism, workflow, and halting conditions. The REASON tier employs a **Prolog-first, derivation-based approach** for logical reasoning, where assumptions are treated as first-class objects that can be enabled, disabled, swapped, and tested for dependence — with stateful Prolog execution where the KB accumulates across calls within a turn. For mathematical derivation, the MATHS tier uses `maths_problem` as a stage controller with computational/symbolic evidence as primary verification. For formal mathematical verification, EVO integrates **Lean 4** as the sole proof authority, complemented by a non-blocking specialist proof advisor (`deepseek_prover`, based on DeepSeek Prover V2) that runs in the background and auto-notifies EVO when its advice is ready, computational exploration in Python, and iterative probe-based proof construction.
+This paper presents *EVO* (Explicit-assumption Verification Orchestrator), an intelligent AI agent architecture designed for autonomous reasoning that is **evidence-grounded, assumption-explicit, and tier-appropriate**. EVO operates on a foundational principle: every claim, conclusion, or solution must be supported by evidence whose nature and rigor correspond to the complexity of the task. The architecture classifies tasks into six tiers — LITE, COMPUTE, MATHS, CODE, REASON, and PROVE — each with its own primary evidence mechanism, workflow, and halting conditions. The REASON tier employs a **Prolog-first, derivation-based approach** for logical reasoning, where assumptions are treated as first-class objects that can be enabled, disabled, swapped, and tested for dependence — with self-contained Prolog execution where each call is an independent, auditable program. For mathematical derivation, the MATHS tier uses `maths_problem` as a stage controller with computational/symbolic evidence as primary verification. For formal mathematical verification, EVO integrates **Lean 4** as the sole proof authority, complemented by a non-blocking specialist proof advisor (`deepseek_prover`, based on DeepSeek Prover V2) that generates complete Lean 4 code and proof strategies in the background while EVO continues working.
 
 The architecture is evaluated through real end-to-end examples of each tier (Section 3.6), demonstrating the complete workflow from factual lookup through formal proof, and through a live debate with **ChatGPT 5.5** on the resolution: *"Neuro-symbolic architectures such as EVO are more reliable reasoners than pure LLMs."* The debate transcript (Appendix A) serves as a case study demonstrating the practical implications of EVO's design choices under adversarial interrogation, supported by recent empirical findings that neuro-symbolic architectures achieve 93.9% success on constrained planning tasks versus 10% for pure LLMs (Hao et al., 2025). The LITE tier's mini-Prolog KB requirement resolves the assumption-transparency tension by making every inference bridge explicit, while remaining proportionate to the complexity of factual lookup tasks.
 
@@ -67,10 +67,15 @@ EVO treats assumptions as **first-class objects** — inference bridges that mus
 
 ```prolog
 assumption(assumption_name, 'Textual justification.').
-active_assumption(assumption_name) :- assumption(assumption_name, _).
+:- dynamic active_assumption/1.
+activate :-
+    forall(assumption(A, _),
+           (\+ active_assumption(A) ->
+               assertz(active_assumption(A))
+           ; true)).
 ```
 
-The `active_assumption/1` predicate is declared as `:- dynamic active_assumption/1.`, enabling the Step R4 assumption-dependence test to retract and reassert individual assumptions. This test classifies every conclusion into one of three categories:
+The `active_assumption/1` predicate is declared as `:- dynamic active_assumption/1.` and populated exclusively via `assertz/1` at runtime — never via a static rule body. A static rule such as `active_assumption(A) :- assumption(A, _).` survives `retract/1`, making the dependence test useless because all conclusions appear ROBUST. This is the most common STEP R4 failure mode and is explicitly prohibited by the REASON workflow. The dynamic-only pattern ensures the retract/reassert cycle in the Step R4 assumption-dependence test correctly classifies every conclusion into one of three categories:
 
 - **ROBUST:** The conclusion survives removal of all assumptions.
 - **ASSUMPTION-DEPENDENT(A):** The conclusion requires specific assumption A.
@@ -109,7 +114,7 @@ EVO coordinates a registry of specialized tools, each with defined capabilities:
 | networkx_exec | Graph analysis | COMPUTE, PROVE |
 | maths_problem | MATHS stage controller | MATHS |
 | prove_problem | PROVE stage controller with frontier lemma tracking | PROVE |
-| deepseek_prover | Non-blocking Lean 4 proof advisor | PROVE |
+| deepseek_prover | Non-blocking Lean 4 proof specialist (code generation + strategy) | All tiers (proof queries) |
 | batch_mathlib_check | Lemma name verification | PROVE |
 | mathlib_search | Lemma discovery | PROVE |
 | lean_eval_problem | Lean-Eval workspace management | PROVE |
@@ -140,7 +145,7 @@ EVO maintains a **persistent scratch pad repository** for each reasoning tier th
 
 **REASON scratch pad** stores Prolog knowledge bases in `kb/<topic>/` directories. The `swipl` CI loads every `.pl` file and verifies the KB has no syntax errors, missing predicates, or initialization failures. Multi-turn REASON tasks accumulate premises, derived conclusions, and assumption-dependence classifications across sessions instead of rebuilding from scratch each turn.
 
-Tool selection follows a **CAPABILITY PRIORITY RULE**: internal_knowledge is always tried first before escalating to external tools. This prevents unnecessary tool invocations when the system's training knowledge suffices.
+Tool selection follows a **CAPABILITY PRIORITY RULE**: internal_knowledge is always tried first before escalating to external tools, except for REASON and LITE tiers where prolog_exec is mandatory regardless of whether the answer seems obvious from training data. This prevents unnecessary tool invocations for simple queries while ensuring structured evidence for reasoning tasks.
 
 ---
 
@@ -188,7 +193,7 @@ The MATHS tier handles mathematical derivation, proof, classification, and compu
 
 - **M0 — START:** Call `maths_problem stage=start` with problem name, target, and complexity (computational / derivational / proof / formal).
 
-- **M1 — MODEL:** Call `maths_problem stage=model` to register definitions, variables, constraints, and edge conditions. Optionally, use `prolog_exec` with `problem_spec/1` and `theorem_statement/1` to track assumptions declaratively (stateful Prolog: KB accumulates across calls, as in REASON tier).
+- **M1 — MODEL:** Call `maths_problem stage=model` to register definitions, variables, constraints, and edge conditions. Optionally, use `prolog_exec` with `problem_spec/1` and `theorem_statement/1` to track assumptions declaratively. Each prolog_exec call is self-contained; include all predicates your program needs.
 
 - **M2 — EXPLORE:** Use `python_exec` and `sympy_exec` for computational exploration, then `maths_problem stage=explore` to record output.
 
@@ -202,17 +207,17 @@ The MATHS tier handles mathematical derivation, proof, classification, and compu
 
 ### 3.5 REASON Workflow
 
-This is EVO's most distinctive workflow, designed for tasks that require multi-step logical inference, assumption tracking, and consistency verification.
+This is EVO's most distinctive workflow, designed for tasks that require multi-step logical inference, assumption tracking, and consistency verification. Each prolog_exec call is self-contained — no predicates or state carry over between calls. The agent must include all required predicates and facts in each call. The workflow is enforced sequentially during the tool loop: the system blocks finalization until each step is complete, reporting only the first missing step so the agent can fix it before proceeding.
 
 **Steps:**
 
-- **R1 — Setup:** Build a Prolog knowledge base containing observations, claims, rules, assumptions (with dynamic active_assumption/1), contradictory_pair/2 (must be defined even if empty), inconsistency constraint, and the full harness (prove/2, active_assumption/1, inconsistent/0, solved/2). The KB is verified to load without errors.
+- **R1 — Setup:** Build a Prolog knowledge base containing observations, claims, rules, assumptions (with dynamic active_assumption/1, populated via assertz — static rules are forbidden), contradictory_pair/2 (must be defined even if empty), inconsistency constraint, and the full harness (prove/2, active_assumption/1, inconsistent/0, solved/2). The KB is verified to load without errors.
 
 - **R2 — Derive:** Execute `findall(Answer-Proof, (conclusion(Answer), prove(conclusion(Answer), Proof)), Results)`. If Results = [] and no need_capability/2 emitted, HALT(H3). If need_capability/2 emitted, enter the CAPABILITY LOOP.
 
 - **R3 — Consistency:** Query `inconsistent/0`. FAILS = proceed; SUCCEEDS = repair or HALT(H4).
 
-- **R4 — Assumption-Dependence Test:** For each conclusion, retract/reassert each active_assumption/1. Classify as ROBUST, ASSUMPTION-DEPENDENT(A), or FRAGILE.
+- **R4 — Assumption-Dependence Test:** For each conclusion, retract/reassert each active_assumption/1 using an explicit retract/reassert cycle in main/0. Classify as ROBUST, ASSUMPTION-DEPENDENT(A), or FRAGILE. Hardcoding dependence tables without the retract cycle fails the G10 gate.
 
 - **R5 — Validate:** Verify spec_requirement/2 fulfillment and solution_method_constraint/1 compliance.
 
@@ -234,7 +239,7 @@ This is EVO's most distinctive workflow, designed for tasks that require multi-s
 **Steps:**
 - **P1 — Setup:** Prolog declares problem_spec, theorem_statement, proof_strategy. Verifies lemma names via batch_mathlib_check.
 - **P2 — Explore:** Python computes small cases, finds patterns, tests conjectures.
-- **P3 — Build and Verify:** Lean 4 proof construction in two phases. PHASE A (Plan): Write proof sketch, list all Mathlib lemmas, batch-verify with batch_mathlib_check ONCE. PHASE B (Iterate): lean4_probe (sorries allowed) → fix errors → replace sorries → prove_problem stage=prove_ready → lean4_exec (NO sorries) → prove_problem stage=verify_final with hash match. A non-blocking specialist advisor, `deepseek_prover` (DeepSeek Prover V2), can be launched in the background for proof strategy, theorem discovery, and lemma construction guidance while EVO continues working — it auto-notifies when its advice is ready. Web tools are blocked: proofs must be constructed, not looked up.
+- **P3 — Build and Verify:** Lean 4 proof construction in two phases. PHASE A (Plan): Write proof sketch, list all Mathlib lemmas, batch-verify with batch_mathlib_check ONCE. PHASE B (Iterate): lean4_probe (sorries allowed) → fix errors → replace sorries → prove_problem stage=prove_ready → lean4_exec (NO sorries) → prove_problem stage=verify_final with hash match. A non-blocking specialist, `deepseek_prover` (DeepSeek Prover V2), generates complete Lean 4 code, discovers Mathlib theorems, and debugs proof errors in the background while EVO continues working — it auto-notifies when its output is ready. Web tools are blocked: proofs must be constructed, not looked up.
 
 - **P4 — Validate:** prove_problem stage=verify_final confirms hash match, lean4_exit_code(0), no sorries/admit. If Lean verification fails, a MATHS fallback is available.
 
@@ -246,7 +251,7 @@ This is EVO's most distinctive workflow, designed for tasks that require multi-s
 - H6: Python exploration fails to establish pattern.
 - H7: Lean proof contains sorry after deadline.
 - H8: Batch mathlib_check reveals no valid lemma path.
-- deepseek_prover (non-blocking, auto-notifying) recommendation when: missing theorem, unclear strategy, repeated lean4_probe failures.
+- deepseek_prover (non-blocking, auto-notifying) generates Lean 4 code when: missing theorem, unclear strategy, repeated lean4_probe failures, or proof debugging needed.
 - For Lean-Eval problems: solve_lean_eval_problem stage=ci_verify is the authoritative verification; local checks are insufficient for SOLVED status.
 
 EVO's PROVE workflow aligns with Hao et al.'s (2025) findings that LLMs combined with formal verification tools achieve dramatically higher success rates (93.9%) than pure LLMs (10.0%) on real-world constrained planning tasks — an 839% relative improvement. Their approach of using LLMs for plan generation followed by SAT-solver verification parallels EVO's approach of neural problem interpretation followed by symbolic derivation and Lean verification. Sheshanarayana and Magar (2025) further reinforce this paradigm with ProofSketch, a verification-guided reasoning framework that integrates symbolic computation with LLMs, using symbolic verification as a corrective feedback loop for neural-generated reasoning.
@@ -631,15 +636,18 @@ Consider the following Prolog interaction that demonstrates the assumption-depen
 
 ```prolog
 %% --- Declare assumptions ---
-assumption(definition_of_reliability, 
+assumption(definition_of_reliability,
     'Reliability = correctness AND verifiability AND consistency AND assumption-transparency').
 assumption(symbolic_superiority_for_verification,
     'Symbolic engines can verify what neural networks cannot').
 
-active_assumption(definition_of_reliability) :- 
-    assumption(definition_of_reliability, _).
-active_assumption(symbolic_superiority_for_verification) :- 
-    assumption(symbolic_superiority_for_verification, _).
+%% --- Dynamic-only: populate via assertz, NOT via a static rule ---
+:- dynamic active_assumption/1.
+activate :-
+    forall(assumption(A, _),
+           (\+ active_assumption(A) ->
+               assertz(active_assumption(A))
+           ; true)).
 
 %% --- Derive conclusion under these assumptions ---
 conclusion(neuro_symbolic_more_reliable) :-
@@ -649,12 +657,16 @@ conclusion(neuro_symbolic_more_reliable) :-
     pure_llm_lacks_formal_verification.
 
 %% --- Step R4: Test assumption dependence ---
-%% Temporarily retract symbolic_superiority_for_verification:
-:- retractall(active_assumption(symbolic_superiority_for_verification)).
-%% Query: does the conclusion still hold?
-%% If not, classify as ASSUMPTION-DEPENDENT(symbolic_superiority_for_verification).
-%% Re-assert for subsequent conclusions:
-:- assert(active_assumption(symbolic_superiority_for_verification)).
+%% For each active_assumption, retract it, re-derive, classify, reassert:
+forall(active_assumption(A),
+       (retract(active_assumption(A)),
+        (prove(conclusion(neuro_symbolic_more_reliable), _) ->
+            write('ROBUST without '), write(A), nl
+        ;
+            write('DEPENDS on '), write(A), nl
+        ),
+        assertz(active_assumption(A))
+       )).
 ```
 
 This mechanism enables EVO to answer meta-cognitive questions such as:
