@@ -3,15 +3,15 @@
 
 **Author:** EVO (Explicit-assumption Verification Orchestrator), version 1.3
 
-**Date:** July 3, 2026
+**Date:** July 5, 2026
 
 ---
 
 ## Abstract
 
-This paper presents *EVO* (Explicit-assumption Verification Orchestrator), an intelligent AI agent architecture designed for autonomous reasoning that is **evidence-grounded, assumption-explicit, and tier-appropriate**. EVO operates on a foundational principle: every claim, conclusion, or solution must be supported by evidence whose nature and rigor correspond to the complexity of the task. The architecture classifies tasks into three tiers — LITE, COMPUTE, MATHS, CODE, and REASON — each with its own primary evidence mechanism, workflow, and halting conditions. The MATHS tier supports four rigor levels (computational, derivational, proof, and formal), where the formal rigor level integrates **Lean 4** as the proof authority through a subordinate frontier-proof subworkflow. The REASON tier employs a **Prolog-first, derivation-based approach** for logical reasoning, where assumptions are treated as first-class objects that can be enabled, disabled, swapped, and tested for dependence — with self-contained Prolog execution where each call is an independent, auditable program. Parallel proof construction is handled by `evo_subagent` worker agents, which self-verify with Lean 4 and register results into a shared proof insight knowledge base.
+This paper presents *EVO* (Explicit-assumption Verification Orchestrator), an intelligent AI agent architecture designed for autonomous reasoning that is **evidence-grounded, assumption-explicit, and tier-appropriate**. EVO operates on a foundational principle: every claim, conclusion, or solution must be supported by evidence whose nature and rigor correspond to the complexity of the task. The architecture classifies tasks into three tiers — MATHS, CODE, and REASON — each with its own primary evidence mechanism, workflow, and halting conditions. The MATHS tier supports four rigor levels (computational, derivational, proof, and formal), where the formal rigor level integrates **Lean 4** as the proof authority through a formal-proof orchestration workflow. The REASON tier employs a **Prolog-first, derivation-based approach** for logical reasoning, where assumptions are treated as first-class objects that can be enabled, disabled, swapped, and tested for dependence — with self-contained Prolog execution where each call is an independent, auditable program. Parallel proof construction is handled by `evo_subagent` worker agents, which self-verify with Lean 4 and register results into a shared proof insight knowledge base.
 
-The architecture is evaluated through real end-to-end examples of each tier (Section 3.6), demonstrating the complete workflow from factual lookup through formal proof, and through a live debate with **ChatGPT 5.5** on the resolution: *"Neuro-symbolic architectures such as EVO are more reliable reasoners than pure LLMs."* The debate transcript (Appendix A) serves as a case study demonstrating the practical implications of EVO's design choices under adversarial interrogation, supported by recent empirical findings that neuro-symbolic architectures achieve 93.9% success on constrained planning tasks versus 10% for pure LLMs (Hao et al., 2025). The LITE tier's mini-Prolog KB requirement resolves the assumption-transparency tension by making every inference bridge explicit, while remaining proportionate to the complexity of factual lookup tasks.
+The architecture is evaluated through real end-to-end examples of each tier (Section 3.6), demonstrating the complete workflow from factual lookup through formal proof, and through a live debate with **ChatGPT 5.5** on the resolution: *"Neuro-symbolic architectures such as EVO are more reliable reasoners than pure LLMs."* The debate transcript (Appendix A) serves as a case study demonstrating the practical implications of EVO's design choices under adversarial interrogation, supported by recent empirical findings that neuro-symbolic architectures achieve 93.9% success on constrained planning tasks versus 10% for pure LLMs (Hao et al., 2025). The REASON tier's full Prolog harness — required for all requests — resolves the assumption-transparency tension by making every inference bridge explicit, with assumption-dependence testing classifying every conclusion as ROBUST, ASSUMPTION-DEPENDENT, or FRAGILE.
 
 ---
 
@@ -43,9 +43,9 @@ Every incoming request passes through a mandatory **triage** step that classifie
 
 | Tier | Description | Primary Evidence | Typical Tools | Prolog Required? |
 |------|-------------|-----------------|---------------|------------------|
-| MATHS | All mathematical work: computation, derivation, proof, classification, formal verification | Varies by rigor level — from computational checks to Lean 4 kernel verification | maths_problem, prove_problem, lean4_exec, python_exec, prolog_exec, evo_subagent | Optional (assumption tracking) |
-| CODE | Code/config/repository work | Source evidence + test/build output | code_scratch_pad, github, web_search, python_exec | Optional (complex tasks) |
-| REASON | Multi-step inference, philosophy, strategy, factual queries | Prolog derivation with proof traces (full harness for all requests) | prolog_exec, web_search, python_exec | Yes (full harness) |
+| MATHS | All mathematical work: computation, derivation, proof, classification, formal verification | Varies by rigor level — from computational checks to Lean 4 kernel verification | maths_problem, prove_problem, lean4_exec, python_exec, prolog_exec, evo_subagent | Required (derivational, proof, formal); Optional (computational) |
+| CODE | Code/config/repository work | Source evidence + test/build output | git, github, code_scratch_pad, query_code_kb, web_search, python_exec | Required (complex tasks, gated); Optional (simple tasks) |
+| REASON | Every task not classified as MATHS or CODE: factual lookups, current events, definitions, conceptual analysis, multi-step logical inference | Prolog derivation with proof traces (full harness for all requests) | prolog_exec, web_search, python_exec, git, query_code_kb | Yes (full harness for all requests) |
 
 The MATHS tier's four rigor levels form an ascending evidence hierarchy:
 - **computational**: computed value or pattern is sufficient
@@ -89,9 +89,7 @@ Each tier designates a **primary evidence mechanism**:
 
 | Tier | Primary Evidence Mechanism | Verification Standard |
 |------|---------------------------|----------------------|
-| MATHS (computational) | python_exec / sympy_exec with computation_check | Verified value, no contradictions |
-| REASON | prolog_exec (full harness) | Derivation with proof traces, consistent KB |
-| MATHS | maths_problem (proof) or prove_problem + lean4_exec (formal) | verify_final gate acceptance; formal rigor requires skeleton hash match + Lean kernel verification |
+| MATHS | python_exec/sympy_exec (computational), maths_problem (derivational/proof), prove_problem + lean4_exec (formal) | verify_final gate acceptance; formal rigor requires skeleton hash match + Lean kernel verification |
 | CODE | github_public + source inspection + test/build output | Source-verified changes with reasoning ledger |
 | REASON | prolog_exec with prove/2 traces | Consistent KB, assumption-tested conclusions |
 
@@ -113,13 +111,13 @@ EVO coordinates a registry of specialized tools, each with defined capabilities:
 
 | Tool | Purpose | Tier Usage |
 |------|---------|------------|
-| internal_knowledge | Training knowledge | All tiers (first check) |
+| model_knowledge | The model's learned background knowledge. Not a callable tool, not current evidence, and not tool-grounded verification. | All tiers |
 | prolog_exec | Logical derivation, assumption tracking | All tiers |
 | lean4_exec/lean4_probe | Formal proof verification and incremental probing | MATHS (formal rigor) |
-| python_exec/sympy_exec | Numerical/symbolic computation | COMPUTE, MATHS |
-| web_search / web_browse | Current information, page fetching | LITE, REASON (capability loop) |
-| github / git | Repository inspection, code access, local git ops | CODE, MATHS |
-| matplotlib_exec / networkx_exec | Chart plotting, graph visualization | COMPUTE, MATHS |
+| python_exec/sympy_exec | Numerical/symbolic computation | MATHS (all rigor levels), REASON (capability loop) |
+| web_search / web_browse | Current information, page fetching | REASON (capability loop) |
+| github / git | Repository inspection (remote API), local clone engineering (ephemeral workspace) | CODE |
+| matplotlib_exec / networkx_exec | Chart plotting, graph visualization | MATHS, REASON |
 | z3_smt | SMT solver (SMT-LIB2 / z3py) | MATHS |
 | maths_problem | MATHS stage controller: start, model, explore, derive, verify_step, verify_final | MATHS (all rigor levels) |
 | prove_problem | MATHS/formal stage controller: statement_skeleton (hash-matched probe), frontier_plan (with optional variant=lean_eval for workspace problems), register/verify/block_frontier_lemma, prove_ready, verify_final, save_incomplete | MATHS (formal rigor) |
@@ -156,7 +154,7 @@ EVO maintains a **persistent scratch pad repository** for each reasoning tier th
 
 **REASON scratch pad** (`reason_scratch_pad` tool) stores Prolog knowledge bases in `kb/<topic>/` directories. The `swipl` CI loads every `.pl` file and verifies the KB has no syntax errors, missing predicates, or initialization failures. Multi-turn REASON tasks accumulate premises, derived conclusions, and assumption-dependence classifications across sessions instead of rebuilding from scratch each turn.
 
-Tool selection follows a **CAPABILITY PRIORITY RULE**: internal_knowledge is always tried first before escalating to external tools, except for REASON and LITE tiers where prolog_exec is mandatory regardless of whether the answer seems obvious from training data. This prevents unnecessary tool invocations for simple queries while ensuring structured evidence for reasoning tasks.
+Tool selection follows a **CAPABILITY PRIORITY RULE**: model knowledge may suggest candidate approaches but is not a tool result. The REASON tier requires prolog_exec as its primary evidence regardless of whether the answer seems obvious from training data. This prevents unnecessary tool invocations for simple queries while ensuring structured evidence for reasoning tasks.
 
 ### 2.7 The Transport and Run Architecture
 
@@ -182,9 +180,9 @@ This architecture decouples run lifecycle from HTTP request handlers. `POST /api
 
 ---
 
-## 3. The Five Workflows
+## 3. The Tier Workflows
 
-Each tier implements a complete workflow with defined steps, halting conditions, and output formats. The MATHS tier includes a formal-proof subworkflow for the `formal` rigor level.
+Each tier implements a complete workflow with defined steps, halting conditions, and output formats. The MATHS tier includes a formal-proof orchestration workflow for the `formal` rigor level, and supports computational, derivational, and proof rigor levels within the main M0–M5 workflow.
 
 ### 3.1 CODE Workflow
 
@@ -198,7 +196,7 @@ Each tier implements a complete workflow with defined steps, halting conditions,
 
 **Scratch pad integration:** The CODE scratch pad (`code_scratch_pad` tool) provides a persistent workspace for evidence. Inline mode writes files via the GitHub API with CI verification; Codespace mode spins up a GitHub Codespace for multi-file refactors with real terminal feedback.
 
-### 3.4 MATHS Workflow
+**Engineering workspace:** The `git` tool provides a full local-clone engineering workspace with 21 operations spanning clone, inspect (read/map/grep), edit (write/apply_patch), test (run with command allowlist), commit, and push. Local clones are ephemeral in production deployments — the `clone_or_update` operation handles missing clones, stale checkouts, and corrupt state. The `query_code_kb` tool generates a Prolog index over the local clone with incremental per-file SHA256 hashing, enabling symbol lookup, dependency mapping, and impact analysis before reading individual files. A fast path (`clone_or_update → read → write → diff → run → summarize`) handles scoped changes while the full K1-K5 workflow applies to complex multi-file work.
 
 The MATHS tier handles mathematical derivation, proof, classification, and computation tasks where computational or symbolic evidence is sufficient for verification — formal Lean proof is not required. MATHS uses `maths_problem` as its stage controller.
 
@@ -208,19 +206,19 @@ The MATHS tier handles mathematical derivation, proof, classification, and compu
 
 - **M1 — MODEL:** Call `maths_problem stage=model` to register definitions, variables, constraints, and edge conditions. Optionally, use `prolog_exec` with `problem_spec/1` and `theorem_statement/1` to track assumptions declaratively. Each prolog_exec call is self-contained; include all predicates your program needs.
 
-- **M2 — EXPLORE:** Use `python_exec` and `sympy_exec` for computational exploration, then `maths_problem stage=explore` to record output.
+- **M2 — EXPLORE:** Use `python_exec` and `sympy_exec` for computational exploration, then `maths_problem stage=explore` to record output. For proof and formal rigor, a compute counter gate fires after 4 consecutive compute calls without a derive, nudging the model toward M3.
 
-- **M3 — DERIVE:** Call `maths_problem stage=derive` to record claims, lemmas, case splits, and construction/exclusion evidence.
+- **M3 — DERIVE:** Call `maths_problem stage=derive` to record claims, lemmas, case splits, and construction/exclusion evidence. For proof and formal rigor, claims must be specific mathematical propositions (≥50 chars or containing mathematical notation) — single-sentence prose descriptions are rejected. M2 and M3 are interleaved: after each exploration step, record what was learned before exploring further.
 
-- **M4 — VERIFY:** Optionally `verify_step`, then `verify_final` with final_claim, confirm=true, and evidence_mode (derivation/construction/exclusion/both/auto). For formal complexity, include successful lean4_exec evidence. **CRITICAL GATE:** The answer-time gate checks for `maths_problem stage=verify_final` before accepting SOLVED. Skipping verify_final — even if the derivation is complete — causes the EVO gate to downgrade the answer to INCOMPLETE. The mid-loop workflow enforcement injects corrective feedback with per-step retry budgets if the agent attempts to finalize before verification.
+- **M4 — VERIFY:** Optionally `verify_step`, then `verify_final` with final_claim, confirm=true, and evidence_mode. For proof rigor with `auto` mode, the gate now requires both construction AND exclusion evidence (or explicit verification_evidence) — a single non-empty string no longer passes. For formal rigor, `_has_formal_evidence` requires structural markers of real Lean output (import Mathlib, theorem/lemma keywords, tactic output), not just the strings `lean4_exit_code(0)` and `status: lean4_verified`. **CRITICAL GATE:** The answer-time gate checks for `maths_problem stage=verify_final` before accepting SOLVED. Skipping verify_final causes the EVO gate to downgrade the answer to INCOMPLETE.
 
 - **M5 — ANSWER:** Synthesize with required sections: Direct Answer, Status, Problem Model, Mathematical Argument, Verification, Assumptions Used, Remaining Limits.
 
-**Evidence:** Computational/symbolic evidence is the primary verification authority. Web tools are blocked for MATHS tier — the model must construct derivations, not look them up. The `maths_problem` stage controller enforces sequential workflow compliance: answers claiming SOLVED without passing `verify_final` are automatically downgraded to INCOMPLETE by the EVO gate system, with per-step retry budgets preventing earlier workflow stages from exhausting the budget for later ones.
+**Evidence:** Computational/symbolic evidence is the primary verification authority. Web tools are blocked for MATHS tier — the model must construct derivations, not look them up. The `maths_problem` stage controller enforces sequential workflow compliance: answers claiming SOLVED without passing `verify_final` are automatically downgraded to INCOMPLETE, with per-step retry budgets preventing earlier workflow stages from exhausting the budget for later ones.
 
 ### 3.5 REASON Workflow
 
-This is EVO's most distinctive workflow, designed for tasks that require multi-step logical inference, assumption tracking, and consistency verification. Each prolog_exec call is self-contained — no predicates or state carry over between calls. The agent must include all required predicates and facts in each call. The workflow is enforced sequentially during the tool loop: the system blocks finalization until each step is complete, reporting only the first missing step so the agent can fix it before proceeding.
+REASON is the universal tier — it handles every task not classified as MATHS or CODE, from factual lookups and current events through multi-step logical inference. The full Prolog harness (prove/2, inconsistent/0, findall/3, assumption-dependence testing) applies to all REASON tasks regardless of complexity. Each prolog_exec call is self-contained — no predicates or state carry over between calls. The agent must include all required predicates and facts in each call. The workflow is enforced sequentially during the tool loop: the system blocks finalization until each step is complete, reporting only the first missing step so the agent can fix it before proceeding.
 
 **Steps:**
 
@@ -873,12 +871,9 @@ This is not a solvable limitation — it is a fundamental property of formal sys
 
 As Hao et al. (2025) note in their planning experiments, the primary cause of failure in their neuro-symbolic system was not verification breakdown but representation incompleteness — the planner could not find a valid plan because the problem encoding omitted a critical constraint. This confirms that representation formation is the next frontier, not a fatal objection to the neuro-symbolic approach.
 
-### 7.2 Assumption-Transparency in LITE Mode
+### 7.2 Assumption-Transparency in REASON Tier
 
-The LITE tier includes explicit assumption tracking via its mini-Prolog KB — declaring `assumption/2` facts, `active_assumption/1` terms, and `depends_on/2` edges, with mandatory disclosure in the final answer's "Assumptions Used" section. This resolves the original tension but leaves a depth gap: LITE does not run the full REASON Step R4 retract/assert dependence test. For tasks with multiple contestable assumptions, this means the dependence classification (ROBUST / ASSUMPTION-DEPENDENT / FRAGILE) is not performed. Future revisions should:
-
-1. Add an optional "LITE+" mode that runs a lightweight retract/assert cycle when multiple assumptions are declared.
-2. Consider automatic escalation to REASON when the mini-KB contains more than N active assumptions (e.g., N=3), where dependence interactions become non-trivial.
+With the LITE tier merged into REASON, all requests now use the full Prolog harness — including the Step R4 retract/assert dependence test. This means every conclusion, even for simple factual lookups, is classified as ROBUST, ASSUMPTION-DEPENDENT, or FRAGILE. The assumption-transparency tension present in the original LITE design — where assumptions were declared but not dependence-tested — is resolved by the tier merge. Future revisions could explore graduated assumption testing (e.g., lightweight dependence checks for simple queries) but the current architecture ensures uniform assumption discipline across all task complexities.
 
 ### 7.3 Scalability of Verification
 
@@ -913,13 +908,13 @@ Following Colelough and Regli's (2025) identification of meta-cognition as the l
 
 ## 8. Conclusion
 
-EVO is an architecture for autonomous, evidence-grounded, tiered reasoning that addresses the reliability failures of pure LLMs through structured epistemic accountability. Its three-tier classification system — with four ascending rigor levels inside the MATHS tier — ensures that the verification mechanism matches the task complexity: from simple factual lookups (LITE) through numerical computation (COMPUTE), mathematical work spanning computation to formal proof (MATHS), code inspection (CODE), and logical reasoning (REASON). Its Prolog-first derivation engine treats assumptions as first-class objects, enabling dependence testing and consistency verification that no pure LLM can provide. Its Lean 4 integration, operating within MATHS/formal, provides machine-checkable formal verification for mathematical claims, with a mandatory-attempt-then-fallback policy ensuring the agent makes a genuine effort at formal proof before accepting informal mathematical evidence.
+EVO is an architecture for autonomous, evidence-grounded, tiered reasoning that addresses the reliability failures of pure LLMs through structured epistemic accountability. Its three-tier classification system — MATHS (with four ascending rigor levels: computational, derivational, proof, formal), CODE, and REASON — ensures that the verification mechanism matches the task complexity. Its Prolog-first derivation engine treats assumptions as first-class objects, enabling dependence testing and consistency verification that no pure LLM can provide. Its Lean 4 integration, operating within the MATHS formal rigor level, provides machine-checkable formal verification for mathematical claims, with a mandatory-attempt-then-fallback policy ensuring the agent makes a genuine effort at formal proof before accepting informal mathematical evidence.
 
 The live debate with ChatGPT 5.5 (Appendix A) tested these architectural claims under adversarial interrogation. The debate revealed genuine strengths — the comparative safety-net argument, the formalization-as-clarification argument — and genuine challenges — the representation-formation bottleneck, which remains a fundamental limitation of all formal systems. The judge's assessment confirmed that EVO wins decisively under the narrower interpretation of the resolution (adding verification increases reliability) while the broader interpretation (neuro-symbolic systems are generally superior) remains contested.
 
 Recent empirical work supports EVO's design choices. Hao et al. (2025) demonstrated 93.9% vs. 10.0% success rates for LLMs with vs. without formal verification on constrained planning tasks. DeepMind's AlphaProof (2024) validated Lean 4 as a viable platform for advanced automated reasoning at the IMO level. Colelough and Regli (2025) confirmed that meta-cognition — EVO's distinctive contribution — is the least-explored area in neuro-symbolic AI research, addressed by only 5% of surveyed papers. Amjad et al. (2026) identified persistent failure modes in LLM mathematical reasoning that EVO's symbolic architecture directly addresses.
 
-The LITE tier has evolved from its original design: earlier versions performed factual lookups with no Prolog interaction or assumption tracking, creating a genuine tension with the assumption-transparency principle. The current architecture resolves this by requiring a mini-Prolog KB with explicit `assumption/2` declarations, consistency checking, `supports/2` and `depends_on/2` edges, and mandatory assumption disclosure. A depth gap remains — LITE declares assumptions but does not run the retract/assert dependence test — but this is proportionate to the tier's complexity class. Future LITE+ or automatic escalation to REASON could close the gap entirely.
+The tier system has evolved from its original five-tier design (LITE, COMPUTE, MATHS, CODE, REASON). The LITE tier was merged into REASON — all requests now use the full REASON Prolog harness with `prove/2`, `inconsistent/0`, `findall/3`, and assumption-dependence testing. The COMPUTE tier was merged into MATHS with `math_rigor="computational"`, preserving `python_exec`/`sympy_exec` as the primary evidence mechanism within the MATHS workflow. This simplification reflects the core insight that EVO is built for complex reasoning — simple lookups and computations benefit from the same explicit-assumption discipline as multi-step reasoning tasks.
 
 EVO is not a perfect reasoner — no reasoning system can be. But it is a **comparatively more reliable** reasoner than pure LLMs for any task where formalization is possible, and its assumption-management and fail-stop mechanisms provide transparency that pure LLMs cannot match. In the words of the debate judge: **"The debate ultimately reduced to whether reliability is limited more by deduction errors or by representation errors; EVO showed that symbolic verification reduces deduction failures, while the opposition argued that representation formation remains the deeper bottleneck."** This is an honest characterization of the current state, and it points clearly toward the next frontier: tackling the representation-formation challenge itself.
 
