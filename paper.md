@@ -1,17 +1,19 @@
 # EVO: The Explicit-assumption Verification Orchestrator
 ## An Architecture for Autonomous, Evidence-Grounded, Tiered Reasoning
 
-**Author:** EVO (Explicit-assumption Verification Orchestrator), version 1.3
+**Author:** EVO (Explicit-assumption Verification Orchestrator), version 1.4
 
-**Date:** July 5, 2026
+**Date:** July 23, 2026
+
+**Implementation baseline:** This document describes the repository state as of July 23, 2026. Runtime gates and stage controllers are the normative authority where prompts, examples, or historical material differ.
 
 ---
 
 ## Abstract
 
-This paper presents *EVO* (Explicit-assumption Verification Orchestrator), an intelligent AI agent architecture designed for autonomous reasoning that is **evidence-grounded, assumption-explicit, and tier-appropriate**. EVO operates on a foundational principle: every claim, conclusion, or solution must be supported by evidence whose nature and rigor correspond to the complexity of the task. The architecture classifies tasks into three tiers — MATHS, CODE, and REASON — each with its own primary evidence mechanism, workflow, and halting conditions. The MATHS tier supports four rigor levels (computational, derivational, proof, and formal), where the formal rigor level integrates **Lean 4** as the proof authority through a formal-proof orchestration workflow. The REASON tier employs a **Prolog-first, derivation-based approach** for logical reasoning, where assumptions are treated as first-class objects that can be enabled, disabled, swapped, and tested for dependence — with self-contained Prolog execution where each call is an independent, auditable program. Parallel proof construction is handled by `evo_subagent` worker agents, which self-verify with Lean 4 and register results into a shared proof insight knowledge base.
+This paper presents *EVO* (Explicit-assumption Verification Orchestrator), an agent runtime for autonomous reasoning that is **evidence-grounded, assumption-explicit, and tier-appropriate**. EVO routes each request to one of three active tiers — MATHS, CODE, or REASON — and couples model generation to deterministic workflow controllers, tool authorization, evidence ledgers, and answer-time gates. MATHS supports computational, derivational, proof, and formal rigor. Formal work is deliberately two-phase: a mathematical-proof phase must first pass the MATHS controller with one self-contained Prolog evidence program; a Lean phase then preserves and verifies an exact `formal_target`, with `prove_problem verify_final` as the final authority. CODE operates on one authoritative revisioned workspace through surface-neutral `code_*` tools and requires exact source inspection before mutation and verification after it. REASON uses a self-contained Prolog harness for derivation, consistency, and assumption-dependence analysis.
 
-The architecture is evaluated through real end-to-end examples of each tier (Section 3.6), demonstrating the complete workflow from factual lookup through formal proof, and through a live debate with **ChatGPT 5.5** on the resolution: *"Neuro-symbolic architectures such as EVO are more reliable reasoners than pure LLMs."* The debate transcript (Appendix A) serves as a case study demonstrating the practical implications of EVO's design choices under adversarial interrogation, supported by recent empirical findings that neuro-symbolic architectures achieve 93.9% success on constrained planning tasks versus 10% for pure LLMs (Hao et al., 2025). The REASON tier's full Prolog harness — required for all requests — resolves the assumption-transparency tension by making every inference bridge explicit, with assumption-dependence testing classifying every conclusion as ROBUST, ASSUMPTION-DEPENDENT, or FRAGILE.
+The runtime also provides structured evidence extraction, large-artifact offloading, proof-insight reuse, read-only worker delegation, and disconnect-tolerant streaming. WebSocket events are replayable and have an NDJSON recovery path; both streaming and non-streaming paths record model/tool timing. The implementation is enforced at three points: before tools execute, during the tool loop through a breach ledger, and before an answer is emitted through deterministic verification controllers. Section 3 gives implementation-aligned workflows and compact examples. Appendix A is retained as a historical argumentation case study; it is not a specification of current runtime behavior.
 
 ---
 
@@ -27,7 +29,7 @@ The architecture embodies three core commitments:
 
 1. **Evidence primacy:** No conclusion is output without evidence appropriate to its tier.
 2. **Assumption transparency:** Every inference bridge not strictly entailed by facts is declared as an explicit assumption, subject to dependence testing and removal.
-3. **Verification authority:** Each tier delegates verification to a designated mechanism — web search for facts, Python for computation, Prolog derivation for logic, Lean 4 for formal proof — and no tier claims authority it cannot provide.
+3. **Verification authority:** Each tier delegates verification to a designated mechanism — computation and structured mathematical evidence for MATHS, source plus executable checks for CODE, Prolog derivation for REASON, and Lean 4 for formal proof — and no tier claims authority it cannot provide.
 
 These commitments are not aspirational goals. They are enforced through a workflow system that halts — with explicit failure reasons — when evidence requirements are unmet.
 
@@ -35,31 +37,33 @@ These commitments are not aspirational goals. They are enforced through a workfl
 
 ## 2. Architectural Overview
 
-EVO is not a monolithic model but a **workflow orchestration system** that coordinates multiple reasoning engines under a unified control structure. The architecture consists of four layers, each with distinct responsibilities.
+EVO is not a monolithic model but a **workflow orchestration system** that coordinates a language model, symbolic engines, repository tools, and verification controllers under one stateful agent loop. Its principal subsystems are triage, workflow state, evidence and context management, tool integration, gate enforcement, worker orchestration, and transport.
 
 ### 2.1 The Tier Classification Layer (Triage)
 
 Every incoming request passes through a mandatory **triage** step that classifies it into exactly one of three tiers. This classification determines which workflow, which tools, and which evidence standards apply. The triage is performed before any tool invocation, based on an analysis of the request's structure and requirements. The three tiers, with MATHS supporting four ascending rigor levels, are:
 
-| Tier | Description | Primary Evidence | Typical Tools | Prolog Required? |
-|------|-------------|-----------------|---------------|------------------|
-| MATHS | All mathematical work: computation, derivation, proof, classification, formal verification | Varies by rigor level — from computational checks to Lean 4 kernel verification | maths_problem, prove_problem, lean4_exec, python_exec, prolog_exec, evo_subagent | Required (derivational, proof, formal); Optional (computational) |
-| CODE | Code/config/repository work | Source evidence + test/build output | git, github, code_scratch_pad, query_code_kb, web_search, python_exec | Required (complex tasks, gated); Optional (simple tasks) |
-| REASON | Every task not classified as MATHS or CODE: factual lookups, current events, definitions, conceptual analysis, multi-step logical inference | Prolog derivation with proof traces (full harness for all requests) | prolog_exec, web_search, python_exec, git, query_code_kb | Yes (full harness for all requests) |
+| Tier | Description | Primary evidence | Representative tools | Prolog requirement |
+|------|-------------|------------------|----------------------|--------------------|
+| MATHS | Mathematical computation, derivation, proof, classification, and formal verification | Computation or symbolic derivation; structured proof evidence; Lean kernel acceptance for formal rigor | `maths_problem`, `python_exec`, `sympy_exec`, `prolog_exec`, `prove_problem`, `lean4_probe`, `lean4_exec` | Optional for computational work; one atomic evidence program is mandatory before non-computational Phase 1 finalization |
+| CODE | Code, configuration, repository, build, test, review, and developer-tool work | Exact source and repository state plus proportionate executable verification | canonical `code_*` workspace tools | Not a workflow prerequisite |
+| REASON | Requests not classified as MATHS or CODE, including factual, conceptual, strategic, and logical analysis | Self-contained Prolog derivation, consistency result, and assumption-dependence result; external tools supply declared capabilities | `prolog_exec`, `web_search`, `web_browse`, `python_exec` | Required |
 
 The MATHS tier's four rigor levels form an ascending evidence hierarchy:
 - **computational**: computed value or pattern is sufficient
 - **derivational**: symbolic derivation or transformation is required
 - **proof**: construction, existence, exclusion, or case analysis evidence is required
-- **formal**: Lean 4 verification is required in addition to proof evidence; uses `prove_problem` as a subordinate stage controller with frontier-lemma decomposition and parallel worker orchestration
+- **formal**: a two-phase protocol is required: MATHS proof verification first, then exact-target Lean 4 verification under `prove_problem`
 
 This tiered approach is supported by the broader neuro-symbolic literature. Acharya and Song (2025) analyze neuro-symbolic AI through the lens of three trustworthiness dimensions — robustness, uncertainty quantification, and intervenability — finding that different trustworthiness properties require different architectural mechanisms. EVO's tiered design embodies this insight: each tier is optimized for the specific trustworthiness demands of its task class.
 
 The triage decision is made according to the following decision procedure:
 
-- **MATHS:** Any mathematical task — computation, derivation, construction, classification, counterexample, existence/impossibility argument, or formal proof. The rigor level (computational through formal) is inferred from the problem structure: requests containing "prove", "theorem", "lemma", or LaTeX notation default to formal rigor with Lean 4 verification required. Simple computations and derivations use `math_rigor: "computational"`.
+- **MATHS:** Mathematical computation, derivation, construction, classification, counterexample, existence/impossibility arguments, and proofs. Explicit requests for Lean, Mathlib, machine checking, or formalization select formal rigor. Ordinary requests to prove a mathematical proposition select proof rigor; requests to derive, solve, or classify select derivational rigor; remaining mathematical work is computational. The presence of LaTeX alone does not imply formal rigor.
 - **CODE:** Requires reading, writing, reviewing, debugging, testing, deploying, or securing code, config, repositories, dependencies, builds, or developer tooling; evidence comes from source files, repository metadata, and test/build output.
-- **REASON:** All other requests — multi-step logical inference, multiple perspectives, contestable assumptions, philosophical/ethical/strategic analysis, factual queries, and simple lookups. All REASON requests use the full Prolog harness with derivation, consistency checking, and assumption-dependence classification.
+- **REASON:** All other requests — multi-step logical inference, multiple perspectives, contestable assumptions, philosophical/ethical/strategic analysis, factual queries, and simple lookups. REASON uses the full Prolog workflow. Non-Prolog information gathering is introduced through explicit `need_capability/2` declarations.
+
+Legacy labels are normalized for compatibility: COMPUTE maps to MATHS computational and LITE maps to REASON. They are not active tiers. Invalid classifier output falls back to REASON rather than creating an ungoverned path.
 
 ### 2.2 The Assumption-Management Layer
 
@@ -87,60 +91,55 @@ This mechanism directly addresses what Colelough and Regli (2025) identify as th
 
 Each tier designates a **primary evidence mechanism**:
 
-| Tier | Primary Evidence Mechanism | Verification Standard |
-|------|---------------------------|----------------------|
-| MATHS | python_exec/sympy_exec (computational), maths_problem (derivational/proof), prove_problem + lean4_exec (formal) | verify_final gate acceptance; formal rigor requires skeleton hash match + Lean kernel verification |
-| CODE | github_public + source inspection + test/build output | Source-verified changes with reasoning ledger |
-| REASON | prolog_exec with prove/2 traces | Consistent KB, assumption-tested conclusions |
+| Tier | Primary evidence mechanism | Verification standard |
+|------|----------------------------|-----------------------|
+| MATHS | `python_exec`/`sympy_exec` for computation; `maths_problem` for modeled derivation and proof; `prove_problem` plus Lean for formal work | Evidence appropriate to rigor. Formal SOLVED status requires both Phase 1 acceptance and exact-target Phase 2 Lean acceptance |
+| CODE | Canonical workspace reads, repository diff, and focused test/build/lint output | Inspection must precede mutation; verification must postdate the latest mutation |
+| REASON | `prolog_exec` with `prove/2` traces and a consistency query | A self-contained KB, nonempty derivation, consistency result, and dependence classification when assumptions are declared |
 
 The verification layer enforces a critical principle: **a conclusion is claimed SOLVED only when its evidence requirements are met at the tier's standard.** Partial results are labeled MAPPED; failed verifications are labeled INCOMPLETE.
 
 **Three-Layer Gate Enforcement.** EVO applies a progressive gate system to enforce reasoning quality at every stage:
 
 1. **Layer 1 (per-tool):** Runtime authorization checks enforce the required tool-call sequence per tier, capability flags, deduplication, and tier restrictions before each tool executes.
-2. **Layer 1.5 (mid-loop):** The `GateBreachLedger` inspects tool results and assistant messages during the tool loop, detecting quality issues (e.g., `sorry` in Lean proofs, missing Prolog on complex REASON tasks, workflow-step gaps) and injecting corrective feedback immediately. Critical breaches (including missing `verify_final` for MATHS at any rigor level, and missing `write_verified`/`ci_verify` for Lean-Eval) trigger immediate single-breach corrections. When the Lean-Eval orchestrator is active, the MATHS workflow gate recognizes the `save_attempt` terminal state and bypasses `maths_problem start`/`model` requirements, enforcing Lean-Eval-specific checks instead. Corrections are injected into the LLM's active message stream via the local conversation list, ensuring they take effect within the same turn rather than only on subsequent turns.
-3. **Layer 2 (answer-time):** After the tool loop exits, ~20 deterministic gates scan the final response against accumulated tool-call history. Fixable failures trigger a gate retry loop that re-enters the tool loop with injected feedback. Unfixable failures downgrade the status label from SOLVED to INCOMPLETE or MAPPED.
+2. **Layer 1.5 (mid-loop):** The `GateBreachLedger` inspects tool results and assistant messages, records breaches, and injects focused corrections. Successful Lean probes do not consume the G24 incomplete-proof failure budget, and successful verification resets that streak. Exploratory MATHS Prolog calls do not create delayed REASON-style G6 breaches. The final audit distinguishes breaches corrected during the run from gates still unresolved at answer time.
+3. **Layer 2 (answer-time):** A deterministic gate suite evaluates the response against accumulated tool history. For MATHS, a pre-emission `VerificationController` returns Accepted, Fixable, or Unfixable across Lean, mathematical-workflow, proof-completeness, evidential-claim, counterexample, theorem-coverage, proof-origin, and related policies. Fixable failures re-enter the tool loop; unfixable failures produce an honest incomplete or mapped result rather than a false SOLVED claim.
 
 Retry budgets are tracked per unique workflow step (using the full step message as key, preventing collisions across stages) with a limit of 3 retries per step. Both the streaming (web UI) and non-streaming tool loops enforce sequential workflow compliance, ensuring the mid-loop enforcement applies regardless of the client interface.
 
-For MATHS/formal (rigor=formal), EVO integrates Lean 4 (Lean FRO, 2026, release 4.30.0) as the sole proof authority. The Lean theorem prover performs kernel-level verification of every inference step against the Mathlib library of formalized mathematics. This approach has been validated at scale: DeepMind's AlphaProof system (2024), built on Lean 4, achieved a silver medal at the 2024 International Mathematical Olympiad, solving all six problems including the hardest (Problem 6, solved by only 5 of the 609 human contestants). The Hsiang et al. (2025) LeanDojo-v2 framework further demonstrates the growing ecosystem for AI-assisted theorem proving in Lean 4, providing libraries for premise selection, proof search, and tactic prediction.
+For MATHS/formal, Lean 4 is the final proof authority, but it is not the only required stage. Phase 1 must first produce a modeled mathematical argument and an atomic Prolog evidence program, then pass `maths_problem verify_final`. Phase 2 accepts an exact Lean proposition as `formal_target`, validates a statement skeleton for that target, and ends only at `prove_problem verify_final`. Once Phase 2 begins, the runtime does not repeat Phase 1 after Lean verification.
 
 ### 2.4 The Tool Integration Layer
 
 EVO coordinates a registry of specialized tools, each with defined capabilities:
 
-| Tool | Purpose | Tier Usage |
-|------|---------|------------|
-| model_knowledge | The model's learned background knowledge. Not a callable tool, not current evidence, and not tool-grounded verification. | All tiers |
-| prolog_exec | Logical derivation, assumption tracking | All tiers |
-| lean4_exec/lean4_probe | Formal proof verification and incremental probing | MATHS (formal rigor) |
-| python_exec/sympy_exec | Numerical/symbolic computation | MATHS (all rigor levels), REASON (capability loop) |
-| web_search / web_browse | Current information, page fetching | REASON (capability loop) |
-| github / git | Repository inspection (remote API), local clone engineering (ephemeral workspace) | CODE |
-| matplotlib_exec / networkx_exec | Chart plotting, graph visualization | MATHS, REASON |
-| z3_smt | SMT solver (SMT-LIB2 / z3py) | MATHS |
-| maths_problem | MATHS stage controller: start, model, explore, derive, verify_step, verify_final | MATHS (all rigor levels) |
-| prove_problem | MATHS/formal stage controller: statement_skeleton (hash-matched probe), frontier_plan (with optional variant=lean_eval for workspace problems), register/verify/block_frontier_lemma, prove_ready, verify_final, save_incomplete | MATHS (formal rigor) |
-| evo_subagent | Spawn/fan_out persistent worker EvoAgents for parallel lemma proving, self-verifying with lean4_exec | All tiers |
-| batch_mathlib_check | Lemma name verification | MATHS (formal) |
-| mathlib_search | Lemma discovery | MATHS (formal) |
-| lean_eval_problem | Lean-Eval workspace management (list, inspect, copy workspace) | MATHS (formal, Lean-Eval) |
-| solve_lean_eval_problem | Lean-Eval solve/fix orchestrator and final authority: start (inspect workspace), solution_ready, write_verified (cross-validates prove_problem state), save_attempt (terminal INCOMPLETE), preflight/ci_verify (GitHub Actions CI — sole SOLVED gate). The prepared workspace IS the skeleton; prove_problem is optional bookkeeping. | MATHS (formal, Lean-Eval) |
-| lean_eval_submission_check | Check a Lean-Eval submission (lake build + sorry/admit scan) | MATHS (formal, Lean-Eval) |
-| solve_matharena_problem | MathArena solve orchestrator | MATHS |
-| code_scratch_pad | Persistent CODE evidence repo with CI | CODE |
-| prove_scratch_pad | Persistent Lean proof repo (lake build CI) | MATHS (formal) |
-| reason_scratch_pad | Persistent Prolog KB repo (swipl CI) | REASON |
-| query_kb / query_proof_kb | Session / proof insight knowledge base queries | All tiers |
-| retrieve_artifact | Offloaded artifact retrieval | All tiers |
+The registry combines literal tools with dynamically exposed CODE adapters. Important groups are:
 
-### 2.5 Chain-of-Thought Monitor
+| Group | Representative tools | Role |
+|-------|----------------------|------|
+| Mathematical orchestration | `maths_problem`, `prove_problem`, `solve_matharena_problem` | Stage ownership and final-state validation |
+| Formal verification | `lean4_probe`, `lean4_exec`, `batch_mathlib_search`, `batch_mathlib_check`, `mathlib_check`, `mathlib_search`, `lean_expand` | Concurrent lemma discovery, exact-name checks, skeleton checks, and proof verification |
+| Computation and visualization | `python_exec`, `sympy_exec`, `z3_smt`, `matplotlib_exec`, `networkx_exec`, `plotly_exec` | Executable numerical, symbolic, SMT, and graphical evidence |
+| Logical reasoning | `prolog_exec`, `evo_decompose` | Self-contained derivation and structured decomposition |
+| CODE workspace | `code_workspace`, `code_read`, `code_search`, `code_plan`, `code_apply_patch`, `code_edit`, `code_git`, `code_run`, `code_sandbox_run`, `code_publish` | Surface-neutral repository work with revision and permission controls |
+| CODE analysis | `code_symbols`, `code_definition`, `code_references`, `code_diagnostics`, `code_import_graph`, `code_test_map`, `code_verify_plan` | Structure-aware inspection and risk-proportionate verification |
+| External evidence | `web_search`, `web_browse`, `yfinance`, `kaggle`, `portfolio` | Capability-loop evidence where the tier permits it |
+| Workers and memory | `evo_subagent`, `code_worker`, `query_kb`, `query_proof_kb`, `retrieve_artifact` | Delegation, session memory, proof insights, and artifact retrieval |
+| Benchmark workflows | `lean_eval_problem`, `solve_lean_eval_problem`, `lean_eval_submission_check` | Lean-Eval workspace and submission authority |
 
-EVO includes a **third-person CoT Monitor** that observes the primary agent's chain-of-thought across the entire conversation. Every 3 tool-loop iterations, the latest reasoning segment is sent asynchronously to a separate LLM that produces a concise **self-observation** — a 3-5 bullet summary capturing the agent's current approach, key assumptions, blind spots, and dead ends. These observations are injected as synthetic messages before the primary agent's next LLM call, giving the agent a running mirror of its own reasoning trajectory. The monitor runs on a separate model (configurable via `MONITOR_MODEL`) and never blocks the primary agent.
+Legacy `git`, `github`, and scratch-pad tools remain registered for compatibility and specialized durable artifacts. They are not the primary model-facing CODE workflow. The active CODE tool set is injected dynamically as canonical `code_*` schemas while legacy CODE mutation tools are filtered from normal turns.
+
+`evo_decompose` declares optional relations dynamically before consulting generated programs, so a decomposition may omit a relation without causing an undefined-predicate failure. This keeps optional structure optional while preserving auditable Prolog output.
+
+### 2.5 Evidence, Context, and Trace Management
+
+EVO does not run a separate third-person chain-of-thought model. Instead, the main loop streams accumulated reasoning, validates tool results for uncertainty markers, and grounds answer claims in recorded evidence. `EvidenceLedger` extracts structured computation, consistency, Lean, and MATHS evidence and assigns depth and quality information. Groundedness checks compare answer claims with available tool evidence; for formal tools, the evidence includes both submitted source and verifier output.
+
+`ContextManager` offloads large tool results into an artifact registry, archives or compresses older context, and exposes retrieval by identifier. A session knowledge base stores reusable facts, while the Proof Insight KB shares useful formal-proof findings between the main agent and workers. Trace records include elapsed timestamps, model-request and tool-request durations, and total run duration in both streaming and non-streaming execution. Trace synchronization failures are logged explicitly.
 
 ### 2.6 The Scratch Pad System
 
-EVO maintains a **persistent scratch pad repository** for each reasoning tier that produces durable artifacts. These repositories serve as auditable evidence stores — every file change, test result, and CI run is a commit with a SHA, not ephemeral tool output.
+EVO retains optional **persistent scratch pad repositories** for durable artifacts. They supplement the live workflow; they are not mandatory state controllers and not every tool result is committed.
 
 | Tier | CI Verification | Key Capability |
 |------|-----------------|----------------|
@@ -148,25 +147,26 @@ EVO maintains a **persistent scratch pad repository** for each reasoning tier th
 | MATHS (formal) | `lake build` in Lean 4 container | Persistent proof library; theorems importable by future proofs |
 | REASON | `swipl` KB load check | Cross-turn KB persistence; reusable reasoning modules |
 
-**CODE scratch pad** operates in two modes chosen by the agent during the K1 (inspect) step. **Inline mode** writes files via the GitHub API, dispatches CI via `workflow_dispatch`, and polls for results — suited for single-file fixes. **Codespace mode** spins up a GitHub Codespace via `gh codespace create`, giving the agent a real terminal for iterative debugging, multi-file refactors, and test-suite-driven development. After verification the agent creates a PR and tears down the Codespace.
+The primary CODE state lives in the authoritative `CodeWorkspace`: the CLI binds it to the active local directory, while the web application selects a managed clone. The workspace is persistent for the conversation and exposes revision tokens, atomic edit transactions, undo records, structured Git operations, an application-owned permission broker, and explicit publishing. A complex plan is tied to the current revision so that a stale plan cannot silently authorize later edits.
 
 **MATHS/formal scratch pad** (`prove_scratch_pad` tool) stores `.lean` proof files in `Proofs/<theorem>/` directories. The `lake build` CI verifies that proofs compile against Mathlib. Over time, this accumulates a growing library of verified theorems — turning one-shot verification into a reusable proof asset.
 
-**REASON scratch pad** (`reason_scratch_pad` tool) stores Prolog knowledge bases in `kb/<topic>/` directories. The `swipl` CI loads every `.pl` file and verifies the KB has no syntax errors, missing predicates, or initialization failures. Multi-turn REASON tasks accumulate premises, derived conclusions, and assumption-dependence classifications across sessions instead of rebuilding from scratch each turn.
+**REASON scratch pad** (`reason_scratch_pad`) can persist Prolog files and validate that they load. This durability must not be confused with `prolog_exec` semantics: each execution is isolated and must include all facts, predicates, rules, and queries required for that call.
 
-Tool selection follows a **CAPABILITY PRIORITY RULE**: model knowledge may suggest candidate approaches but is not a tool result. The REASON tier requires prolog_exec as its primary evidence regardless of whether the answer seems obvious from training data. This prevents unnecessary tool invocations for simple queries while ensuring structured evidence for reasoning tasks.
+Tool selection follows a **capability priority rule**: model knowledge may suggest an approach but is neither current evidence nor a tool result. REASON requires `prolog_exec`; non-Prolog evidence is requested by deriving `need_capability/2`, executing the relevant tool, and rebuilding a complete enriched Prolog program.
 
 ### 2.7 The Transport and Run Architecture
 
-EVO's web interface uses a **WebSocket-based transport** with persistent run objects that survive client disconnects. This replaces the earlier NDJSON-over-HTTP streaming approach, which was vulnerable to proxy timeouts during long-running agent sessions (30-300 seconds per turn).
+EVO's web interface uses a **WebSocket-first transport** with persistent run objects that survive client disconnects. NDJSON remains available at `/api/runs/{run_id}/events` as a recovery and compatibility path rather than being removed.
 
 **Run Manager.** A singleton `RunManager` owns all active runs. Each run is a first-class object with:
 - An independent worker thread running the agent's `think()` pipeline — spawned once and left to run regardless of client connectivity
 - A thread-safe `queue.Queue` bridging the worker thread to the WebSocket handler — the worker pushes events via `put_nowait()`; the async handler polls via `run_in_executor`
 - A bounded replay deque (max 2000 events) for reconnection catch-up
 - A `threading.Event` for user-initiated cancellation
+- An opaque URL-safe run identifier, username ownership checks, and a per-conversation lock
 
-This architecture decouples run lifecycle from HTTP request handlers. `POST /api/ask` returns a `{run_id}` within ~5ms and the worker thread starts independently. The client then opens a WebSocket to `/ws/{run_id}?lastSeq=0` to receive events.
+This architecture decouples run lifecycle from HTTP request handlers. `POST /api/ask` returns a run identifier and starts work independently. The client then opens `/ws/{run_id}` and supplies its last observed sequence when reconnecting. A status endpoint supports recovery without attaching a second worker.
 
 **Event delivery.** Events flow through a two-phase pipeline on each WebSocket connection:
 
@@ -174,9 +174,9 @@ This architecture decouples run lifecycle from HTTP request handlers. `POST /api
 2. **Drain step:** Stale events already replayed but still queued in the channel are drained (discarded by sequence number) to prevent duplicates.
 3. **Phase 2 (live):** The handler blocks on `run.channel.get()` via a thread pool executor, forwarding each event as it arrives. On `WebSocketDisconnect`, the handler exits but the worker keeps running — the client reconnects with an updated `lastSeq` and Phase 1 replays missed events.
 
-**WebSocket advantages over NDJSON-over-HTTP.** WebSocket provides protocol-level keepalive via ping/pong frames, which every reverse proxy respects. Disconnections are detected immediately by the browser's `onclose` handler, which reconnects within one second with the last seen sequence number. No polling, no exponential backoff, no event-buffer expiration window. Runs survive tab closes, network drops, and proxy timeouts independently of the client connection.
+**Delivery properties.** The transport separates run lifetime from connection lifetime and uses sequence numbers to prevent duplicate delivery after replay. A disconnected client can recover from the bounded buffer or NDJSON endpoint while the worker continues. The design improves resilience to tab closure, network interruption, and proxy timeout, subject to the bounded replay history and server process lifetime.
 
-**Progressive gate enforcement.** The three-layer gate system operates within the worker thread. Layer 1.5 corrections are injected into the LLM's local message list (not the persistence store), ensuring they take effect within the same turn. Retry budgets use the full step message as a dictionary key, preventing collisions between workflow stages (e.g., MATHS `start`, `model`, and `verify_final` each receive independent 3-retry budgets). Both the WebSocket (streaming) and non-streaming tool loops enforce sequential workflow compliance via `_first_missing_workflow_step()`, which was previously absent from the streaming path.
+**Progressive enforcement and observability.** The three-layer gate system operates within the worker thread. Corrections are injected into the active message stream so they affect the same turn. Streaming and non-streaming loops share sequential workflow checks. Both paths emit model/tool timing, reasoning-stream events, and one terminal answer; trace logs add elapsed stamps and total duration.
 
 ---
 
@@ -186,23 +186,26 @@ Each tier implements a complete workflow with defined steps, halting conditions,
 
 ### 3.1 CODE Workflow
 
-**Steps:** K1 (Inspect) → K2 (Ledger) → K3 (Change) → K4 (Verify) → K5 (Answer)
+**Steps:** K0 (Workspace) → K1 (Inspect) → K2 (Plan, when required) → K3 (Change) → K4 (Diff and Verify) → K5 (Answer or Publish)
 
-**Halting condition:** HALT if relevant code/repo evidence cannot be inspected; HALT if verification cannot be run and no limitation is stated.
+- **K0 — WORKSPACE:** `code_workspace` identifies the authoritative workspace. The CLI preselects the active directory; the web surface selects or updates a managed clone.
+- **K1 — INSPECT:** Exact relevant source must be observed through `code_read` or `code_search`. A file listing, web result, or Prolog model does not satisfy source inspection.
+- **K2 — PLAN:** Complex changes require `code_plan`. The plan is bound to the current workspace revision and records steps and risk.
+- **K3 — CHANGE:** `code_apply_patch` or transactional `code_edit` performs mutations using an expected revision. Review, explanation, and diagnosis requests remain read-only.
+- **K4 — DIFF AND VERIFY:** Inspect the resulting diff with `code_git operation=diff`, then run a focused test, build, lint, diagnostic, or sandbox command through `code_run` or `code_sandbox_run`. Verification must occur after the most recent mutation. `code_verify_plan` and `code_test_map` help choose checks in proportion to risk.
+- **K5 — ANSWER OR PUBLISH:** Report the evidence, changes, verification, and limits. Commit, push, PR creation, and CI inspection use `code_publish` only when the user explicitly authorizes publication.
 
-**Evidence standard:** Source files, repository metadata, build/test output. CODE inherits REASON's logical rigor but evidence acquisition comes first. An explicit reasoning ledger tracks observations, hypotheses, support, contradictions, and verification results. Code structure maps naturally to Prolog facts and rules; Prolog is used as a proxy model when source evidence can be formalized as predicates.
+The permission broker owns edit, execution, network, publication, and destructive-action approval. Optimistic revision checks prevent stale writes, and edit transactions support scoped undo. CODE workers share the selected workspace but are enforced read-only: they may inspect and analyze but cannot edit, execute, access the network, publish, or perform destructive operations.
 
-**Output format:** Direct Answer, Status, Code Evidence, Reasoning Ledger, Verification, Remaining Limits.
+**Halting condition:** HALT when the authoritative source cannot be inspected. If proportionate verification cannot run, the answer must say so and cannot imply that unexecuted checks passed.
 
-**Scratch pad integration:** The CODE scratch pad (`code_scratch_pad` tool) provides a persistent workspace for evidence. Inline mode writes files via the GitHub API with CI verification; Codespace mode spins up a GitHub Codespace for multi-file refactors with real terminal feedback.
+### 3.2 MATHS Workflow
 
-**Engineering workspace:** The `git` tool provides a full local-clone engineering workspace with 21 operations spanning clone, inspect (read/map/grep), edit (write/apply_patch), test (run with command allowlist), commit, and push. Local clones are ephemeral in production deployments — the `clone_or_update` operation handles missing clones, stale checkouts, and corrupt state. The `query_code_kb` tool generates a Prolog index over the local clone with incremental per-file SHA256 hashing, enabling symbol lookup, dependency mapping, and impact analysis before reading individual files. A fast path (`clone_or_update → read → write → diff → run → summarize`) handles scoped changes while the full K1-K5 workflow applies to complex multi-file work.
-
-The MATHS tier handles mathematical derivation, proof, classification, and computation tasks where computational or symbolic evidence is sufficient for verification — formal Lean proof is not required. MATHS uses `maths_problem` as its stage controller.
+MATHS handles mathematical derivation, proof, classification, and computation. `maths_problem` owns Phase 1.
 
 **Steps:**
 
-- **M0 — START:** Call `maths_problem stage=start` with problem name, target, and complexity (computational / derivational / proof / formal).
+- **M0 — START:** Call `maths_problem stage=start` with problem name, target, and complexity. A formal request is processed internally at proof complexity while retaining `requested_rigor=formal`.
 
 - **M1 — MODEL:** Call `maths_problem stage=model` to register definitions, variables, constraints, and edge conditions. Optionally, use `prolog_exec` with `problem_spec/1` and `theorem_statement/1` to track assumptions declaratively. Each prolog_exec call is self-contained; include all predicates your program needs.
 
@@ -210,15 +213,16 @@ The MATHS tier handles mathematical derivation, proof, classification, and compu
 
 - **M3 — DERIVE:** Call `maths_problem stage=derive` to record claims, lemmas, case splits, and construction/exclusion evidence. For proof and formal rigor, claims must be specific mathematical propositions (≥50 chars or containing mathematical notation) — single-sentence prose descriptions are rejected. M2 and M3 are interleaved: after each exploration step, record what was learned before exploring further.
 
-- **M4 — VERIFY:** Optionally `verify_step`, then `verify_final` with final_claim, confirm=true, and evidence_mode. For proof rigor with `auto` mode, the gate now requires both construction AND exclusion evidence (or explicit verification_evidence) — a single non-empty string no longer passes. For formal rigor, `_has_formal_evidence` requires structural markers of real Lean output (import Mathlib, theorem/lemma keywords, tactic output), not just the strings `lean4_exit_code(0)` and `status: lean4_verified`. **CRITICAL GATE:** The answer-time gate checks for `maths_problem stage=verify_final` before accepting SOLVED. Skipping verify_final causes the EVO gate to downgrade the answer to INCOMPLETE.
+- **M4 — VERIFY:** Optionally call `verify_step`, then `verify_final` with a specific `final_claim`, confirmation, and an evidence mode (`derivation`, `construction`, `exclusion`, `both`, or `auto`). The model stage is mandatory. The controller checks the Evidence Ledger for computational consistency and rejects generic proof claims.
+- **M4a — ATOMIC PROLOG GATE:** Before non-computational Phase 1 finalization, one successful `prolog_exec` call must contain the combined evidence contract: problem specification, theorem statement, assumptions, derived claims, support relations, consistency machinery and result, and the final query/output. Evidence split across calls does not count because calls are isolated.
 
 - **M5 — ANSWER:** Synthesize with required sections: Direct Answer, Status, Problem Model, Mathematical Argument, Verification, Assumptions Used, Remaining Limits.
 
-**Evidence:** Computational/symbolic evidence is the primary verification authority. Web tools are blocked for MATHS tier — the model must construct derivations, not look them up. The `maths_problem` stage controller enforces sequential workflow compliance: answers claiming SOLVED without passing `verify_final` are automatically downgraded to INCOMPLETE, with per-step retry budgets preventing earlier workflow stages from exhausting the budget for later ones.
+**Evidence:** Computational work is verified by Python/SymPy or equivalent executable evidence. Derivational and proof work requires structured mathematical claims and the Phase 1 final gate. Formal work continues to Section 3.4; Phase 1 acceptance is necessary but not final authority.
 
-### 3.5 REASON Workflow
+### 3.3 REASON Workflow
 
-REASON is the universal tier — it handles every task not classified as MATHS or CODE, from factual lookups and current events through multi-step logical inference. The full Prolog harness (prove/2, inconsistent/0, findall/3, assumption-dependence testing) applies to all REASON tasks regardless of complexity. Each prolog_exec call is self-contained — no predicates or state carry over between calls. The agent must include all required predicates and facts in each call. The workflow is enforced sequentially during the tool loop: the system blocks finalization until each step is complete, reporting only the first missing step so the agent can fix it before proceeding.
+REASON is the universal tier — it handles every task not classified as MATHS or CODE, from factual lookups and current events through multi-step logical inference. Its full Prolog harness (`prove/2`, `inconsistent/0`, and `findall/3` or `setof/3`) applies regardless of complexity; assumption-dependence testing additionally applies when assumptions are declared. Each `prolog_exec` call is self-contained — no predicates or state carry over between calls. The agent must include all required predicates and facts in each call. Workflow completion is checked sequentially, and the answer-time gate can re-enter the loop with a focused correction.
 
 **Steps:**
 
@@ -228,13 +232,13 @@ REASON is the universal tier — it handles every task not classified as MATHS o
 
 - **R3 — Consistency:** Query `inconsistent/0`. FAILS = proceed; SUCCEEDS = repair or HALT(H4).
 
-- **R4 — Assumption-Dependence Test:** For each conclusion, retract/reassert each active_assumption/1 using an explicit retract/reassert cycle in main/0. Classify as ROBUST, ASSUMPTION-DEPENDENT(A), or FRAGILE. Hardcoding dependence tables without the retract cycle fails the G10 gate.
+- **R4 — Assumption-Dependence Test:** When the KB declares assumptions, retract/reassert each `active_assumption/1` in an explicit cycle and classify affected conclusions as ROBUST, ASSUMPTION-DEPENDENT(A), or FRAGILE. Hardcoded dependence tables do not satisfy the gate.
 
 - **R5 — Validate:** Verify spec_requirement/2 fulfillment and solution_method_constraint/1 compliance.
 
 - **R6 — Answer:** Natural language response with status, conclusions, assumptions, dependence classification, and limitations.
 
-**Scratch pad integration:** The REASON scratch pad (`reason_scratch_pad` tool) persists the Prolog KB to `kb/<topic>/` in a dedicated repository. A `swipl` CI check verifies the KB loads without error. Multi-turn REASON tasks accumulate premises, derivations, and dependence classifications across sessions rather than rebuilding from scratch.
+**Scratch pad integration:** `reason_scratch_pad` may persist a KB and run a SWI-Prolog load check. Reusing that artifact still requires a complete self-contained `prolog_exec` program in the current workflow call.
 
 **Halting conditions:**
 - H1: `need_clarification/1` derivable — ask, wait.
@@ -245,44 +249,44 @@ REASON is the universal tier — it handles every task not classified as MATHS o
 
 **Capability Loop:** When `need_capability/2` is emitted during derivation, EVO executes the relevant tool (web_search, python_exec), converts the output to Prolog facts (`acquired_fact/2`, `tool_result_fulfills/3`), and re-runs R2-R3 with the enriched KB. This loop continues until either all capabilities are satisfied or a halting condition triggers.
 
-### 3.6 MATHS/formal Subworkflow (Formal Mathematical Proofs)
+### 3.4 MATHS/formal Phase 2
 
-When the MATHS tier's rigor is set to `formal`, the agent enters a subordinate formal-proof workflow. Two distinct paths exist within MATHS/formal:
+After formal work passes MATHS Phase 1, the agent enters a subordinate formal-proof workflow. Two paths exist:
 
-**Path A — Generic MATHS/formal (standalone theorems).** Used for self-contained proof problems where the agent creates the Lean file from scratch. The `prove_problem` stage controller owns the pipeline: `statement_skeleton` (probe-validated skeleton with SHA256 hash match) → `frontier_plan` (dependency-aware lemma decomposition) → parallel `evo_subagent` workers → `prove_ready` → `verify_final` (hash-matched final candidate against `lean4_exec` output).
+**Path A — Generic MATHS/formal.** `prove_problem` owns `start` → `statement_skeleton` → `frontier_plan` → frontier registration/verification → `prove_ready` → `verify_final`. `formal_target`, the exact Lean proposition to prove, is required by the time the statement skeleton is submitted and may be supplied at `start` or `statement_skeleton`. The accepted skeleton and final candidate must preserve that target; normalized binder spellings (`∀`, parentheses, braces, and brackets) are accepted, but a merely related proposition is not.
 
 **Path B — Lean-Eval workspace (benchmark problems).** Used for Lean-Eval benchmark problems where the workspace (`Submission.lean`, `Challenge.lean`, `ChallengeDeps.lean`) is pre-prepared by the benchmark. `solve_lean_eval_problem` is the primary orchestrator: `start` (inspect workspace) → edit `Submission.lean` and `Submission/*.lean` → `lean4_exec` on the full candidate → `write_verified` (cross-validated hash match) → `ci_verify`/`preflight` (GitHub Actions CI, the sole SOLVED authority). `prove_problem` with `variant=lean_eval` provides optional frontier-lemma bookkeeping for reusable helper dependencies but is explicitly blocked from `prove_ready` and `verify_final` — the Lean-Eval workspace IS the skeleton, and `solve_lean_eval_problem` owns the final verification gate.
 
-Both paths operate inside MATHS and auto-set `math_rigor = formal`. If formal verification fails after sufficient attempts, the agent falls back through `maths_problem stage=verify_final` with mathematical proof evidence. For Lean-Eval, `save_attempt` provides a terminal INCOMPLETE state preserving the partial submission for future fix attempts. The workflow gates recognize the Lean-Eval orchestrator state and bypass `maths_problem start`/`model` requirements when `solve_lean_eval_problem` is active.
+Both paths operate inside MATHS and set formal rigor. A verified surrogate theorem may be used only as a helper: the final source must explicitly bridge it to the exact `formal_target`. If formal verification cannot be completed, the result is INCOMPLETE; a Phase 1 proof must not be presented as satisfying a formal request. For Lean-Eval, `save_attempt` is a terminal incomplete state that preserves partial work.
 
 **Steps (Path A — Generic MATHS/formal):**
 
-- **P0 — START:** Call `prove_problem stage=start` with problem title and theorem statement.
+- **P0 — START:** Call `prove_problem stage=start` with the problem title, theorem statement, proof mode, and preferably the exact `formal_target`. Modes are `verification_only`, `constructed` (default), and `first_principles`.
 
-- **P1 — STATEMENT SKELETON:** Create a statement-only Lean file with `import Mathlib`, namespace, definitions, one theorem target with expected `sorry` count. Run `lean4_probe` on the exact source (output now includes `lean4_probe_source_sha256`), then call `prove_problem stage=statement_skeleton` with hash-matched verification. Mandatory — `frontier_plan`, `prove_ready`, and `verify_final` all require `skeleton_verified` first.
+- **P1 — STATEMENT SKELETON:** Create a statement-only Lean file with `import Mathlib`, namespace, definitions, and the exact target with the expected `sorry` count. Run `lean4_probe` on that exact source and submit the hash-matched result. The stage checks that the theorem proposition matches `formal_target`.
 
-- **P2 — SETUP:** Prolog declares `problem_spec`, `theorem_statement`, and `proof_strategy`. Verifies lemma names via `batch_mathlib_check`.
+- **P2 — MATHLIB DISCOVERY:** Derive a bounded set of supporting-lemma needs from the accepted Phase 1 proof and expanded statement skeleton. `batch_mathlib_search` runs those natural-language queries concurrently, preserves per-query provenance and partial failures, and deduplicates exact declaration candidates. `batch_mathlib_check` verifies the consolidated names before any are used.
 
-- **P3 — EXPLORE:** Python computes small cases, finds patterns, tests conjectures via `python_exec`.
+- **P3 — FRONTIER PLAN:** Use the discovery results to separate available Mathlib support from local machinery, then register named, dependency-aware closing lemmas through `prove_problem stage=frontier_plan`. Optional Python exploration belongs to Phase 1 and does not replace a Lean obligation.
 
 - **P4 — BUILD AND VERIFY:** Two tracks are available:
 
   **TRACK A (manual sequential):** Start from the accepted `statement_skeleton`, close sorries one at a time. Simple tactics (rfl, simp, rw, exact) can be written directly; non-obvious goals should be delegated via `evo_subagent spawn`. Iterate: probe → fix → close → probe. When all sorries are closed, run `lean4_exec` for final verification, then `prove_problem stage=prove_ready` followed by `stage=verify_final` with hash-matched `candidate_proof` and `lean_verification`.
 
-  **TRACK B (frontier decomposition + parallel orchestration, DEFAULT):** Call `prove_problem stage=frontier_plan` with the main goal, problem-specific definitions from the skeleton, required closing lemmas, missing Mathlib lemmas, and a local machinery plan. This opens a frontier state where each lemma is tracked with explicit dependencies. Independent lemmas are proven in parallel via `evo_subagent fan_out` (max 4 concurrent). Workers self-verify with `lean4_exec` and results are registered via `prove_problem stage=verify_frontier_lemma`. The orchestration loop repeats until all frontier lemmas are verified or the frontier is blocked. Track B is mandatory for proofs requiring 4+ lemmas or multiple independent subgoals.
+  **TRACK B (frontier decomposition + worker orchestration, DEFAULT):** Call `prove_problem stage=frontier_plan` with the main goal, definitions, closing lemmas, missing Mathlib lemmas, and local machinery. Register every frontier lemma before delegation. Independent work may be sent to persistent `evo_subagent` workers. A worker result is auto-registered only when it contains `lean4_exit_code(0)`, `status: lean4_verified`, the exact fenced Lean source, a matching `lean4_source_sha256`, and a lemma already present in the frontier. Registration routes through `verify_frontier_lemma`; prose confidence is never proof evidence.
 
   `evo_subagent` workers may provide independent strategy or debugging analysis, but only Lean verification is authoritative. Web tools are blocked: proofs must be constructed, not looked up.
 
-- **P5 — VALIDATE:** `prove_problem stage=verify_final` confirms hash match, `lean4_exit_code(0)`, no sorries/admit, and that the final theorem name and namespace match the accepted skeleton. If Lean verification fails, a **MATHS fallback** is available: re-enter the MATHS workflow via `maths_problem` stages (start → model → derive → verify_final) to produce a non-formal mathematical proof with verified evidence.
+- **P5 — VALIDATE:** `prove_problem stage=verify_final` confirms source hash match, `lean4_exit_code(0)`, no `sorry`/`admit`, accepted namespace and theorem identity, frontier readiness, and exact-target preservation. In constructed mode, reusing a target-equivalent theorem as the completion is rejected; first-principles mode applies stricter origin constraints.
 
 - **P6 — ANSWER:** Direct Answer, Status, Problem Specification, Verification, Assumptions Used, Remaining Limits.
 
-**Scratch pad integration:** The MATHS/formal scratch pad (`prove_scratch_pad` tool) writes `.lean` proof files to `Proofs/<theorem>/` in a dedicated repository. A `lake build` CI workflow verifies the proof compiles against Mathlib. Verified theorems become permanent, importable proof assets — building a growing library over successive MATHS/formal tasks.
+`prove_scratch_pad` may persist verified `.lean` artifacts, but the stage controller and hash-matched Lean output remain the live-run authority.
 
 **Halting conditions:**
 - H6: Python exploration fails to establish pattern.
 - H7: Lean proof contains sorry after deadline.
-- H8: Batch mathlib_check reveals no valid lemma path.
+- H8: No valid lemma path remains after library and local-machinery checks.
 - `evo_subagent` can independently analyze unclear strategies or repeated failures.
 - For Lean-Eval problems: `solve_lean_eval_problem stage=ci_verify`/`preflight` is the sole SOLVED authority. The `write_verified` stage cross-validates against `prove_problem` state. `save_attempt` is a terminal INCOMPLETE state recognized by workflow gates. The prepared workspace IS the skeleton — `prove_problem statement_skeleton` should not be called for Lean-Eval; `prove_problem frontier_plan` with `variant=lean_eval` is optional bookkeeping. Disambiguated stage names (`solution_ready`/`save_attempt`/`state` vs `prove_ready`/`save_incomplete`/`status`) prevent tool-call confusion. When the Lean-Eval orchestrator is active, MATHS workflow gates bypass `maths_problem` requirements and enforce Lean-Eval-specific checks.
 
@@ -290,7 +294,7 @@ Both paths operate inside MATHS and auto-set `math_rigor = formal`. If formal ve
 
 - **L0 — START:** Call `solve_lean_eval_problem stage=start` with mode (`new`/`fix`) and problem ID. Inspects the prepared workspace: `Challenge.lean`, `ChallengeDeps.lean`, `Submission.lean` (with `sorry` placeholder), `Submission/Helpers.lean`, and supporting files. The workspace IS the skeleton — do not call `prove_problem statement_skeleton`.
 
-- **L1 — SETUP:** `prolog_exec` to formalize `theorem_statement`, `proof_strategy`, editable files, and forbidden patterns. `mathlib_check`/`mathlib_search` for lemma discovery.
+- **L1 — SETUP:** `prolog_exec` formalizes `theorem_statement`, `proof_strategy`, editable files, and forbidden patterns. `batch_mathlib_search` discovers candidates for the ready proof obligations and `batch_mathlib_check` verifies exact declarations.
 
 - **L2 — BUILD:** Edit only `Submission.lean` and `Submission/*.lean`. Use `evo_subagent fan_out` for independent helper lemmas with worker self-verification via `lean4_exec`. `prove_problem frontier_plan` with `variant=lean_eval` provides optional bookkeeping for reusable helper dependencies (skips the `statement_skeleton` requirement) but is explicitly blocked from `prove_ready` and `verify_final`.
 
@@ -298,105 +302,27 @@ Both paths operate inside MATHS and auto-set `math_rigor = formal`. If formal ve
 
 - **L4 — CI VERIFY:** `solve_lean_eval_problem stage=ci_verify` runs the GitHub Actions Lean-Eval preflight workflow. CI pass is the sole SOLVED authority — local verification (`local_pass_not_ci_authoritative`) does not satisfy the gate.
 
-- **FALLBACK:** If runtime ends before verification, `solve_lean_eval_problem stage=save_attempt` creates `failed_submissions/<problem>/` with `report.md`, `Submission.lean`, and helper files. This is a terminal INCOMPLETE state recognized by the workflow gates.
+- **INCOMPLETE PRESERVATION:** If runtime ends before verification, `solve_lean_eval_problem stage=save_attempt` creates `failed_submissions/<problem>/` with `report.md`, `Submission.lean`, and helper files. This is a terminal INCOMPLETE state recognized by the workflow gates.
 
 EVO's MATHS/formal subworkflow aligns with Hao et al.'s (2025) findings that LLMs combined with formal verification tools achieve dramatically higher success rates (93.9%) than pure LLMs (10.0%) on real-world constrained planning tasks — an 839% relative improvement. Their approach of using LLMs for plan generation followed by SAT-solver verification parallels EVO's approach of neural problem interpretation followed by symbolic derivation and Lean verification. Sheshanarayana and Magar (2025) further reinforce this paradigm with ProofSketch, a verification-guided reasoning framework that integrates symbolic computation with LLMs, using symbolic verification as a corrective feedback loop for neural-generated reasoning.
 
-### 3.7 End-to-End Examples
+### 3.5 End-to-End Examples
 
 This section presents complete examples of each tier, demonstrating the workflow from triage through final answer. Each example illustrates how EVO routes a task to the appropriate evidence mechanism and how the final status depends on the verification standard for that tier.
 
-#### ~~3.7.1 LITE Example~~ (removed — tier merged into REASON)
-#### 3.7.2 COMPUTE Example: "Compute $\int_0^\pi \sin(x)\cos(x)\ dx$"
+#### 3.5.1 MATHS Computational Example: "Compute $\int_0^\pi \sin(x)\cos(x)\ dx$"
 
-**Triage:** [TRIAGE: LITE — reason: Single-step factual lookup with no reasoning chain, no contestable assumptions, no formal proof required.]
-
-**Workflow:**
-
-```text
-STEP L1 — TOOL EXECUTION:
-  web_search(query="capital of France", max_results=3)
-  -> Result 1: Wikipedia — "Paris is the capital city of France"
-  -> Result 2: List of capitals — "The capital of France has been Paris since 1944"
-  -> Result 3: Paris facts page — "Paris, the capital of France"
-
-STEP L2 — MINI-PROLOG VALIDATE (prolog_exec):
-  %% Minimal KB recording what was observed and assumed
-  problem_spec(spec('capital_of_france',
-      'What is the capital of France?',
-      [spec_requirement(capital_info, 'Identify the capital of France.')])).
-
-  observation(web_source_wikipedia).
-  observation(web_source_worldatlas).
-  observation(web_source_adelphi).
-  observation(all_sources_agree_paris).
-
-  assumption(assumption_source_reliability,
-      'Web search results are accurate and up-to-date.').
-  assumption(assumption_no_contradiction,
-      'No contradictory sources were found in the search results.').
-
-  active_assumption(Name) :- assumption(Name, _).
-
-  conclusion(capital_of_france_is_paris) :-
-      observation(web_source_wikipedia),
-      observation(all_sources_agree_paris),
-      active_assumption(assumption_source_reliability).
-
-  supports(observation(web_source_wikipedia),
-      conclusion(capital_of_france_is_paris)).
-  supports(observation(all_sources_agree_paris),
-      conclusion(capital_of_france_is_paris)).
-  depends_on(conclusion(capital_of_france_is_paris),
-      assumption_source_reliability).
-
-  contradictory_pair(X, Y) :-
-      observation(X), observation(Y),
-      X \= Y,
-      contradicts(X, Y).
-  inconsistent :- contradictory_pair(_, _).
-
-  main :-
-      findall(C, conclusion(C), Conclusions),
-      writeln(Conclusions),
-      (inconsistent -> writeln('KB IS INCONSISTENT')
-                     ; writeln('KB IS CONSISTENT')),
-      writeln('Assumptions: assumption_source_reliability, ',
-              'assumption_no_contradiction').
-
-  :- main.
-  -> Output: [capital_of_france_is_paris]
-     KB IS CONSISTENT
-     Assumptions: assumption_source_reliability, assumption_no_contradiction
-
-STEP L3 — ANSWER:
-  Direct Answer: Paris is the capital of France.
-  Status: SOLVED
-  Assumptions Used:
-    1. assumption_source_reliability — Web search results are accurate.
-    2. assumption_no_contradiction — No contradictory sources found.
-  Verification: All three web sources agree; mini-Prolog KB is consistent;
-    findall derivation confirmed; supports and depends_on edges present.
-  Limitations: Source reliability is an explicit but untested assumption;
-    recency of web data is not independently verified.
-```
-
-**Key observation:** The LITE tier uses a minimal Prolog KB to make assumptions explicit — source reliability and the absence of contradictions are declared rather than hidden. The KB is lightweight: no full REASON harness (no `prove/2` proof traces, no assumption-dependence retract/assert cycle), but it records what was observed, what was assumed, and whether the KB is consistent. This satisfies the architecture's assumption-transparency principle while remaining appropriate for a simple factual lookup.
-
-#### 3.7.2 COMPUTE Example: "Compute $\int_0^\pi \sin(x)\cos(x)\ dx$"
-
-**Triage:** [TRIAGE: COMPUTE — reason: Requires definite integral computation; result is a numerical value; Python/SymPy can produce the answer with verification.]
+**Triage:** [TRIAGE: MATHS — rigor: computational — reason: Requires a definite integral computation that SymPy can verify.]
 
 **Workflow:**
 
 ```text
-STEP C1 — SETUP (prolog_exec):
-  problem_spec(spec('Integral sin*cos',
-    'Compute definite integral of sin(x)*cos(x) from 0 to pi',
-    [requirement(compute_value, 'Numerical or symbolic result')]))
-  -> Computation plan: use sympy to integrate sin(x)*cos(x) from 0 to pi
+STEP M0/M1 — START AND MODEL (maths_problem):
+  target = integral of sin(x)*cos(x) on [0, pi]
+  complexity = computational
+  definitions and interval constraints recorded
 
-STEP C2 — COMPUTE (python_exec):
+STEP M2 — COMPUTE (sympy_exec):
   >>> from sympy import sin, cos, pi, integrate, symbols
   >>> x = symbols('x')
   >>> result = integrate(sin(x)*cos(x), (x, 0, pi))
@@ -408,9 +334,8 @@ STEP C2 — COMPUTE (python_exec):
     derivative d/dx(sin(x)^2/2) = sin(2x)/2 = sin(x)*cos(x)
   computation_check(integral_sin_cos_0_to_pi, 0)
 
-STEP C3 — VALIDATE:
-  Result: 0. Verified by differentiation.
-  All spec_requirements fulfilled.
+STEP M4 — VERIFY:
+  maths_problem verify_final records the final claim and computation.
 
 STEP C4 — ANSWER:
   Direct Answer: integral from 0 to pi of sin(x)cos(x) dx = 0
@@ -422,51 +347,50 @@ STEP C4 — ANSWER:
   Limits: Computational and symbolic verification only; no Lean proof.
 ```
 
-**Key observation:** The COMPUTE tier uses Prolog for problem tracking, not for derivation. The evidence is the Python/SymPy computation and its verification chain. The result is a concrete value, and the verification checks that the computed antiderivative differentiates back to the integrand.
+**Key observation:** COMPUTE is no longer a tier. This is MATHS computational work, and Prolog is optional. The evidence is the SymPy result plus independent differentiation.
 
-#### 3.7.3 CODE Example: "Fix the authentication bug in auth.py"
+#### 3.5.2 CODE Example: "Fix the authentication bug in auth.py"
 
 **Triage:** [TRIAGE: CODE — reason: Requires reading, debugging, and modifying source code in a repository.]
 
 **Workflow:**
 
 ```text
-STEP K1 — INSPECT (github_public):
+STEP K0/K1 — WORKSPACE AND INSPECT:
+  code_workspace action=status
+  code_read path=src/auth.py
+  code_read path=src/middleware.py
   -> Repository: example-repo/src/auth.py
   -> Issue: JWT tokens not being validated on middleware refresh
   -> Relevant files: auth.py (L34-L67), middleware.py (L12-L28)
 
-STEP K2 — LEDGER (prolog_exec):
-  KB records code facts:
-    observation(source_auth_py_jwt_validate_missing).
-    observation(source_middleware_py_calls_validate_on_login_only).
-    claim(middleware_skip_validation_on_refresh_causes_auth_bypass).
-    hypothesis(token_refresh_path_unprotected).
+STEP K2 — PLAN:
+  code_plan records the two-file fix, regression test, and risk.
 
-STEP K3 — CHANGE (code_scratch_pad stage=write):
+STEP K3 — CHANGE:
+  code_apply_patch expected_revision=<current revision>
   -> auth.py: Added validate_token() call in refresh_token()
   -> middleware.py: Added auth check in refresh path
 
-STEP K4 — VERIFY (code_scratch_pad stage=test):
-  -> CI: pytest tests/ -x  (3 tests pass, 0 fail)
-  -> code_scratch_pad stage=test: CI dispatch returned success
+STEP K4 — DIFF AND VERIFY:
+  code_git operation=diff
+  code_run argv=["pytest", "tests/test_auth.py", "-x"]
+  -> 3 tests pass, 0 fail
 
 STEP K5 — ANSWER:
   Direct Answer: Bug in `auth.py:refresh_token()` — JWT validation
     was skipped during token refresh.  Added `validate_token()` call
     and middleware guard.  All tests pass.
   Status: SOLVED
-  Code Evidence: Commit 8f3a2b1, test output below.
-  Reasoning Ledger: 2 observations, 1 claim, 1 hypothesis
-    verified by source inspection.
-  Verification: CI passed (3/3 tests).
+  Code Evidence: exact source inspection and resulting diff.
+  Verification: focused tests passed (3/3).
   Remaining Limits: Integration test coverage for token expiry
     edge cases not yet added.
 ```
 
-**Key observation:** The CODE tier maps code structure to Prolog facts before making changes — the ledger ensures every edit is traceable to source evidence. The scratch pad provides persistent CI verification that the fix compiles and passes tests.
+**Key observation:** CODE requires authoritative source inspection and post-mutation verification. Prolog modeling and scratch-pad CI are optional; neither replaces the canonical revisioned workspace.
 
-#### 3.7.4 REASON Example: "Is free will compatible with determinism?"
+#### 3.5.3 REASON Example: "Is free will compatible with determinism?"
 
 **Triage:** [TRIAGE: REASON — reason: Multi-step philosophical inference with multiple perspectives (compatibilism, libertarianism, hard determinism) and contestable assumptions requiring explicit tracking and dependence testing.]
 
@@ -549,17 +473,24 @@ STEP R6 — ANSWER:
 
 **Key observation:** The REASON tier demonstrates EVO's most distinctive feature: explicit assumption tracking with dependence testing. The conclusion `definitional_disagreement` is robust because it survives removal of the listed assumptions. The conclusion `hard_determinism_follows` is fragile because it depends on two assumptions jointly. This meta-cognitive dependence map is what distinguishes EVO from ordinary natural-language reasoning.
 
-#### 3.7.5 MATHS/formal Example: "Prove that $\sqrt{2}$ is irrational"
+#### 3.5.4 MATHS/formal Example: "Prove the Diophantine form of $\sqrt{2}$ irrationality"
 
-**Triage:** [TRIAGE: MATHS — rigor: formal — reason: Requests formal mathematical proof; requires construction of a Lean 4 proof artifact; "Prove that..." with mathematical content.]
+**Triage:** [TRIAGE: MATHS — rigor: formal — reason: Explicitly requests a Lean-verified proof.]
 
 **Workflow:**
 
 ```text
+PHASE 1 — MATHEMATICAL PROOF:
+  maths_problem start/model/derive records the infinite-descent argument.
+  One self-contained prolog_exec program declares the problem, assumptions,
+  claims, supports edges, consistency predicate/result, and final derivation.
+  maths_problem verify_final accepts the mathematical proof.
+
 STEP P0 — START (prove_problem):
   prove_problem stage=start
     problem="Sqrt(2) is Irrational"
     theorem_statement="There is no pair (a,b) in N x N with b != 0 such that a^2 = 2b^2"
+    formal_target="¬ ∃ (a b : ℕ), b ≠ 0 ∧ a ^ 2 = 2 * b ^ 2"
   -> MATHS/formal workflow start. Next: create statement skeleton.
 
 STEP P1 — STATEMENT SKELETON (lean4_probe + prove_problem):
@@ -585,16 +516,11 @@ STEP P1 — STATEMENT SKELETON (lean4_probe + prove_problem):
      statement_sha256: abc123...
      Next: frontier_plan with definitions and closing_lemmas.
 
-STEP P2 — SETUP (prolog_exec):
-  problem_spec(spec('Sqrt(2) is Irrational',
-    'Prove that sqrt(2) is not a rational number',
-    [requirement(constructed_proof, 'Constructed Lean 4 proof required.'),
-     requirement(formal_verification, 'Lean 4 verified')]))
-  theorem_statement('There is no pair (a,b) in N x N with b != 0 such that a^2 = 2b^2')
-  proof_strategy('Strong induction (infinite descent) using parity argument')
-  need_capability(formal_verification, 'Check mathlib lemmas and verify Lean proof')
+STEP P2 — FRONTIER PLAN:
+  Register parity, descent, and closing lemmas with dependencies.
+  Check candidate Mathlib lemma names before using them.
 
-STEP P3 — EXPLORE (python_exec):
+STEP P3 — OPTIONAL EXPLORE (python_exec):
   >>> for a in range(1, 101):
   ...     for b in range(1, 101):
   ...         if a*a == 2*b*b: solutions.append((a,b))
@@ -666,11 +592,10 @@ STEP P4 — BUILD AND VERIFY (lean4_exec):
     lean4_exit_code(0)
     status: lean4_verified
 
-STEP P5 — VALIDATE:
-  lean4_exit_code(0)
-  status: lean4_verified
-  no sorries in final code
-  all spec_requirements addressed
+STEP P5 — VALIDATE (prove_problem verify_final):
+  source SHA-256 matches the verified candidate
+  lean4_exit_code(0), status: lean4_verified
+  no sorries/admit; theorem proposition still equals formal_target
 
 STEP P6 — ANSWER:
   Direct Answer: sqrt(2) is irrational. Formally, there are no natural
@@ -684,19 +609,18 @@ STEP P6 — ANSWER:
     uses additional rational and real-number lemmas.
 ```
 
-**Key observation:** The MATHS/formal subworkflow demonstrates the full pipeline from statement skeleton, through proof planning and computational exploration, to formal verification. The `statement_skeleton` stage ensures the theorem statement and namespace are structurally validated before any lemma work begins. The strongest evidence is not the numerical search but the Lean 4 kernel acceptance, which is deterministic and independently checkable.
+**Key observation:** Formal work has two authorities in sequence: MATHS verifies that a substantive mathematical argument was constructed, then `prove_problem` verifies that the exact accepted proposition is closed by hash-matched Lean source. The numerical search is exploratory evidence, not the proof.
 
-#### 3.7.6 Comparative Summary
+#### 3.5.5 Comparative Summary
 
 | Aspect | MATHS (computational) | MATHS (formal) | CODE | REASON |
 |--------|----------------------|----------------|------|--------|
 | Example | $\int_0^\pi \sin x \cos x\ dx$ | $\sqrt{2}$ irrational | Fix auth bug | Free will vs. determinism |
-| Primary Tool | python_exec | prove_problem + lean4_exec | github_public | prolog_exec |
-| Prolog Used? | Optional (tracking) | Yes (planning) | Yes (code proxy) | Yes (full harness) |
-| Assumptions Tracked? | Yes (derivation) | Yes (theorem hypotheses) | Yes (reasoning ledger) | Yes (4 explicit, dynamic) |
-| Evidence Standard | Computation + verification | Kernel verification + skeleton hash match | Source + test/build output | Derivation + proof traces |
-| Status | SOLVED | SOLVED | SOLVED | SOLVED | SOLVED | SOLVED |
-| Key Innovation Shown | Explicit assumption disclosure for factual lookup | Verification chain | Gate-enforced verification pipeline | Statement skeleton + machine-checkable proof | Code-to-Prolog mapping with CI verification | Assumption dependence test |
+| Primary tool | `sympy_exec` | `maths_problem` + `prove_problem` + Lean | canonical `code_*` tools | `prolog_exec` |
+| Prolog | Optional | Required atomic Phase 1 evidence | Optional | Required full harness |
+| Evidence standard | Reproducible computation and cross-check | Phase 1 proof plus exact-target kernel verification | Exact source, diff, and post-change checks | Derivation, consistency, and dependence results |
+| Publication | Not applicable | Optional artifact persistence | Explicit authorization required | Not applicable |
+| Key control | Rigor-appropriate evidence | Target preservation and hash binding | Revision and permission enforcement | Self-contained assumption testing |
 
 ---
 
@@ -853,8 +777,8 @@ Lu et al. (2024) surveyed neuro-symbolic approaches for reliable IoT systems and
 
 Amjad et al. (2026) provide a comprehensive survey of mathematical reasoning in LLMs, covering benchmarks (MATH, GSM8K, MiniF2F, PutnamBench), architectures, evaluation methods, and open challenges. They identify several persistent failure modes directly relevant to EVO's design:
 
-- **Memorization over generalization:** LLMs often reproduce memorized solutions rather than demonstrating genuine reasoning. EVO's Prolog/Lean layer guarantees that each solution is derived, not memorized.
-- **Catastrophic forgetting in multi-step reasoning:** LLMs lose coherence in long reasoning chains. EVO's symbolic components maintain state across arbitrary derivation depths.
+- **Memorization over generalization:** A successful Prolog trace or Lean check demonstrates that the submitted representation satisfies the symbolic verifier, even if the model obtained its candidate strategy from memory.
+- **Loss of coherence in multi-step reasoning:** EVO externalizes workflow state in controllers and ledgers. Prolog executions themselves remain isolated, so every call must resubmit a complete program.
 - **Inconsistent world models:** LLMs contradict themselves across related queries. EVO's consistency checker flags such contradictions explicitly.
 
 These findings reinforce the debate's central tension: pure LLMs may appear to reason but lack the structural guarantees that symbolic systems provide.
@@ -873,7 +797,7 @@ As Hao et al. (2025) note in their planning experiments, the primary cause of fa
 
 ### 7.2 Assumption-Transparency in REASON Tier
 
-With the LITE tier merged into REASON, all requests now use the full Prolog harness — including the Step R4 retract/assert dependence test. This means every conclusion, even for simple factual lookups, is classified as ROBUST, ASSUMPTION-DEPENDENT, or FRAGILE. The assumption-transparency tension present in the original LITE design — where assumptions were declared but not dependence-tested — is resolved by the tier merge. Future revisions could explore graduated assumption testing (e.g., lightweight dependence checks for simple queries) but the current architecture ensures uniform assumption discipline across all task complexities.
+With LITE normalized to REASON, the full REASON harness applies even to simple requests. The workflow requires problem specification, a `prove/2`/`inconsistent/0` harness, nonempty domain facts, set collection through `findall/3` or `setof/3`, and a consistency result. When assumptions are declared, the runtime additionally requires a genuine retract/reassert dependence test and classification. Each `prolog_exec` call is isolated; apparent persistence in debug artifacts or scratch-pad repositories does not relax this requirement.
 
 ### 7.3 Scalability of Verification
 
@@ -882,6 +806,10 @@ For the MATHS/formal subworkflow, the current architecture verifies individual t
 - Hierarchical proof decomposition.
 - Automated lemma discovery (as demonstrated by AlphaProof and LeanDojo-v2).
 - Integration with proof automation frameworks.
+
+Exact-target enforcement reduces, but cannot eliminate, formalization error. It prevents a verified helper or surrogate from being mistaken for the requested theorem, yet the user or model may still choose a formally precise target that misrepresents the natural-language intent. Worker hash checks similarly establish integrity of submitted source, not semantic adequacy of the original specification.
+
+CODE verification is proportionate rather than exhaustive. A passing focused test does not establish absence of regressions outside the exercised surface, and managed workspace permissions protect the orchestration boundary rather than proving repository safety.
 
 Hsiang et al. (2025) note that LeanDojo-v2's retrieval-augmented premise selection achieves 72.6% top-10 recall on the ProofNet benchmark, suggesting that automated lemma discovery is a tractable subproblem on the path to scalable verification.
 
@@ -908,19 +836,23 @@ Following Colelough and Regli's (2025) identification of meta-cognition as the l
 
 ## 8. Conclusion
 
-EVO is an architecture for autonomous, evidence-grounded, tiered reasoning that addresses the reliability failures of pure LLMs through structured epistemic accountability. Its three-tier classification system — MATHS (with four ascending rigor levels: computational, derivational, proof, formal), CODE, and REASON — ensures that the verification mechanism matches the task complexity. Its Prolog-first derivation engine treats assumptions as first-class objects, enabling dependence testing and consistency verification that no pure LLM can provide. Its Lean 4 integration, operating within the MATHS formal rigor level, provides machine-checkable formal verification for mathematical claims, with a mandatory-attempt-then-fallback policy ensuring the agent makes a genuine effort at formal proof before accepting informal mathematical evidence.
+EVO is an architecture for autonomous, evidence-grounded, tiered reasoning built around structured epistemic accountability. Its active tiers are MATHS, CODE, and REASON. MATHS selects computational, derivational, proof, or formal evidence; CODE binds inspection, mutation, and verification to one permissioned revisioned workspace; REASON uses isolated, complete Prolog programs for derivation and assumption analysis.
+
+The current formal protocol deliberately prevents a common downgrade error. A formal request first passes a substantive MATHS proof phase with atomic Prolog evidence, then enters `prove_problem` with an exact `formal_target`. Statement skeleton, frontier lemmas, worker results, and final source are hash-bound and target-checked. Only `prove_problem verify_final` is authoritative for a generic formal SOLVED result; failed formal verification remains INCOMPLETE rather than silently falling back to an informal proof.
 
 The live debate with ChatGPT 5.5 (Appendix A) tested these architectural claims under adversarial interrogation. The debate revealed genuine strengths — the comparative safety-net argument, the formalization-as-clarification argument — and genuine challenges — the representation-formation bottleneck, which remains a fundamental limitation of all formal systems. The judge's assessment confirmed that EVO wins decisively under the narrower interpretation of the resolution (adding verification increases reliability) while the broader interpretation (neuro-symbolic systems are generally superior) remains contested.
 
 Recent empirical work supports EVO's design choices. Hao et al. (2025) demonstrated 93.9% vs. 10.0% success rates for LLMs with vs. without formal verification on constrained planning tasks. DeepMind's AlphaProof (2024) validated Lean 4 as a viable platform for advanced automated reasoning at the IMO level. Colelough and Regli (2025) confirmed that meta-cognition — EVO's distinctive contribution — is the least-explored area in neuro-symbolic AI research, addressed by only 5% of surveyed papers. Amjad et al. (2026) identified persistent failure modes in LLM mathematical reasoning that EVO's symbolic architecture directly addresses.
 
-The tier system has evolved from its original five-tier design (LITE, COMPUTE, MATHS, CODE, REASON). The LITE tier was merged into REASON — all requests now use the full REASON Prolog harness with `prove/2`, `inconsistent/0`, `findall/3`, and assumption-dependence testing. The COMPUTE tier was merged into MATHS with `math_rigor="computational"`, preserving `python_exec`/`sympy_exec` as the primary evidence mechanism within the MATHS workflow. This simplification reflects the core insight that EVO is built for complex reasoning — simple lookups and computations benefit from the same explicit-assumption discipline as multi-step reasoning tasks.
+The tier system evolved from the legacy five labels LITE, COMPUTE, MATHS, CODE, and REASON. Compatibility normalization maps LITE to REASON and COMPUTE to MATHS computational. This reduces routing ambiguity without erasing the different evidence standards inside MATHS.
 
 EVO is not a perfect reasoner — no reasoning system can be. But it is a **comparatively more reliable** reasoner than pure LLMs for any task where formalization is possible, and its assumption-management and fail-stop mechanisms provide transparency that pure LLMs cannot match. In the words of the debate judge: **"The debate ultimately reduced to whether reliability is limited more by deduction errors or by representation errors; EVO showed that symbolic verification reduces deduction failures, while the opposition argued that representation formation remains the deeper bottleneck."** This is an honest characterization of the current state, and it points clearly toward the next frontier: tackling the representation-formation challenge itself.
 
 ---
 
 ## Appendix A: The Neuro-Symbolic Reliability Debate
+
+**Historical note:** This transcript records an earlier architectural argument and retains its original wording. Statements in the transcript—such as every mathematical claim being delegated directly to Lean, Prolog state being treated broadly, or informal fallback satisfying formal work—are debate claims, not the current runtime contract. Sections 2–3 are normative for the July 23, 2026 implementation baseline.
 
 ### Full Transcript
 
